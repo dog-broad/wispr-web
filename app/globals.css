@@ -1,0 +1,266 @@
+@import "tailwindcss";
+
+/* -------------------------------------------------------------- */
+/* Design tokens — indie pixel warmth palette, pixel-grid geometry */
+/* -------------------------------------------------------------- */
+@theme {
+  /* Palette */
+  --color-cream: #f4ecd8;
+  --color-cream-50: #faf5e6;
+  --color-cream-200: #e6dcc2;
+  --color-cream-400: #c9bf9c;
+
+  --color-navy: #1f1a2e;
+  --color-navy-700: #2d2640;
+  --color-navy-900: #15111f;
+
+  --color-pink: #ff6188;
+  --color-pink-dark: #c84a6c;
+
+  --color-purple: #8b5fbf;
+  --color-purple-dark: #6c4793;
+
+  --color-moss: #7a9e7e;
+  --color-moss-dark: #5a7d5e;
+
+  --color-marigold: #f9b572;
+  --color-marigold-dark: #d9914f;
+
+  /* Fonts (configured via next/font, exposed as CSS variables in layout.tsx) */
+  --font-display: var(--font-silkscreen), monospace;
+  --font-body: var(--font-pixelify), system-ui, monospace;
+  --font-mono: var(--font-vt323), monospace;
+
+  /* Pixel-grid radii */
+  --radius-pixel: 0;
+  --radius-none: 0;
+  --radius-sm: 0;
+  --radius: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-full: 0;
+
+  /* Pixel shadow tokens — solid, no blur */
+  --shadow-pixel: 4px 4px 0 0 var(--color-navy);
+  --shadow-pixel-sm: 2px 2px 0 0 var(--color-navy);
+  --shadow-pixel-lg: 6px 6px 0 0 var(--color-navy);
+  --shadow-pixel-inset: inset 2px 2px 0 0 var(--color-navy);
+}
+
+/* -------------------------------------------------------------- */
+/* Base reset                                                      */
+/* -------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+  --bg: var(--color-cream);
+  --fg: var(--color-navy);
+  --bg-lifted: var(--color-cream-50);
+  --bg-sunk: var(--color-cream-200);
+  --border: var(--color-navy);
+  --scanline-opacity: 0.06;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: var(--color-navy);
+  --fg: var(--color-cream);
+  --bg-lifted: var(--color-navy-700);
+  --bg-sunk: var(--color-navy-900);
+  --border: var(--color-cream);
+  --scanline-opacity: 0.08;
+}
+
+html {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Pixel-perfect rendering for every visual surface */
+img,
+svg,
+canvas,
+.pixel {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Any digit/number/time/code in UI chrome uses VT323 — terminal-clear
+   numerals. Pixelify Sans collapses 1/I/l and O/0 at small sizes; VT323
+   keeps them legible. Apply to <span class="num">…</span> or via
+   font-pixel-num utility. */
+.num,
+.font-pixel-num,
+kbd,
+code,
+samp,
+time {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Selection colors — pink wash */
+::selection {
+  background-color: color-mix(in srgb, var(--color-pink) 30%, transparent);
+  color: var(--fg);
+}
+
+/* Focus rings — pink, 2px solid, 2px offset, no blur */
+:focus-visible {
+  outline: 2px solid var(--color-pink);
+  outline-offset: 2px;
+  border-radius: 0;
+}
+
+/* -------------------------------------------------------------- */
+/* Atmospheric layers                                              */
+/* -------------------------------------------------------------- */
+.pixel-scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    var(--border) 2px,
+    var(--border) 3px
+  );
+  opacity: var(--scanline-opacity);
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+:root[data-theme="dark"] .pixel-scanlines {
+  mix-blend-mode: screen;
+}
+
+.pixel-dither {
+  /* 4x4 SVG dither pattern, tiny dark dots in a Bayer-ish arrangement */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect x='0' y='0' width='1' height='1' fill='%231f1a2e' opacity='0.5'/><rect x='2' y='2' width='1' height='1' fill='%231f1a2e' opacity='0.3'/></svg>");
+  background-repeat: repeat;
+  background-size: 4px 4px;
+  opacity: 0.06;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+:root[data-theme="dark"] .pixel-dither {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect x='0' y='0' width='1' height='1' fill='%23f4ecd8' opacity='0.5'/><rect x='2' y='2' width='1' height='1' fill='%23f4ecd8' opacity='0.3'/></svg>");
+  mix-blend-mode: screen;
+}
+
+/* -------------------------------------------------------------- */
+/* Pixel motion primitives — steps() only                          */
+/* -------------------------------------------------------------- */
+@keyframes wisp-bob {
+  0% { transform: translateY(0); }
+  25% { transform: translateY(-2px); }
+  50% { transform: translateY(-4px); }
+  75% { transform: translateY(-2px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes wisp-blink {
+  0%, 92% { transform: scaleY(1); }
+  94%, 98% { transform: scaleY(0.1); }
+  100% { transform: scaleY(1); }
+}
+
+@keyframes drift-in {
+  0% { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes spark {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: scale(0) rotate(45deg); opacity: 0; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-pink); }
+  50% { box-shadow: 0 0 0 2px var(--color-pink); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.anim-wisp-bob {
+  animation: wisp-bob 2s steps(4) infinite;
+}
+
+.anim-wisp-blink {
+  animation: wisp-blink 4s steps(2) infinite;
+  transform-origin: center;
+}
+
+.anim-drift-in {
+  animation: drift-in 320ms steps(2) both;
+}
+
+.anim-marquee {
+  animation: marquee 28s steps(120) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-wisp-bob,
+  .anim-wisp-blink,
+  .anim-drift-in,
+  .anim-marquee {
+    animation: none;
+  }
+  * {
+    transition: none !important;
+  }
+}
+
+/* -------------------------------------------------------------- */
+/* Pixel button press — snap interaction, no easing                */
+/* -------------------------------------------------------------- */
+.pixel-press {
+  transition:
+    transform 80ms steps(1),
+    box-shadow 80ms steps(1);
+}
+
+.pixel-press:hover,
+.pixel-press:focus-visible {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 0 var(--border);
+}
+
+.pixel-press:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 0 var(--border);
+}
+
+/* -------------------------------------------------------------- */
+/* Scrollbar — pixelated chunky                                    */
+/* -------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-sunk);
+  border-left: 2px solid var(--border);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-pink);
+  border: 2px solid var(--border);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-pink-dark);
+}
