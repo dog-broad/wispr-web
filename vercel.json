@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "pnpm install --ignore-scripts && pnpm rebuild @tailwindcss/oxide esbuild sharp unrs-resolver"
+}
