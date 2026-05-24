@@ -22,21 +22,66 @@ export interface WispMascotProps {
 
 // The Wisp — a kawaii pixel spirit on a 24×24 grid.
 //
-// Body silhouette: a chunky cream capsule with a rounded top cap and a
-// single curling wisp-tail that trails out to the lower-right (instead
-// of the older three-tab "feet" that read more like a sock puppet than
-// a ghost). Each `state` swaps the held accessory and the expression.
+// Silhouette: an oval cream capsule, widest at the chest (14 px) and
+// tapering on both ends. A single flame-shaped wisp-tail drops from the
+// underside and curls back to the right at the tip. The whole shape is
+// one continuous body, so the spirit reads as "floating," not "wearing
+// shoes" (which was the failure mode of the old three-tab feet).
 //
-// Pixel geometry, in viewBox units:
-//   - body trunk:   x=4..19, y=2..15  (rounded top, scalloped capsule)
-//   - eyes:         (8,8)-(9,9)  and (14,8)-(15,9)  with cream sparkle
-//   - mouth:        clustered around (11,12)-(13,13), state-dependent
-//   - cheek blush:  (6,10) and (17,10)
-//   - wisp-tail:    diagonal curl from (13,16) down to (19,20)
-//   - accessory:    floats at the "hand" — around (18,11) to (23,15)
+// Pixel anatomy (in viewBox units):
+//   - dome cap:   y=1..5  cream widens 6 → 14
+//   - chest:      y=6..13 14-wide trunk
+//   - underbelly: y=14..16 tapers 12 → 10 → 6
+//   - tail:       y=17..20 4 → 3 → 2 → 1, curling to the right
+//   - eyes:       (8,8)..(9,9) and (14,8)..(15,9)
+//   - mouth:      around (10..13, 11..12), state-dependent
+//   - blush:      (6,10) + (17,10), softer halo at row 11
+//   - accessory:  cols 17..23, generally rows 9..15 (the "hand")
+//   - sleep Z:    cols 19..23, rows 0..4 (top-right corner)
 //
-// All shapes are 1×1 rects, rendered with shape-rendering: crispEdges
-// so they stay pin-sharp at any integer scale.
+// The silhouette is described declaratively in CREAM_ROWS below — each
+// entry is one row of cream interior. The navy outline is derived by
+// drawing the same silhouette one pixel wider on every side underneath,
+// plus a manual top cap, two underbelly shoulders, and a tail terminal.
+
+type Row = readonly [y: number, x0: number, x1: number];
+
+const CREAM_ROWS: readonly Row[] = [
+  // dome cap (rows expand 1 col per side per step)
+  [2, 9, 14],
+  [3, 8, 15],
+  [4, 7, 16],
+  [5, 6, 17],
+  // chest — full 14-wide trunk
+  [6, 5, 18],
+  [7, 5, 18],
+  [8, 5, 18],
+  [9, 5, 18],
+  [10, 5, 18],
+  [11, 5, 18],
+  [12, 5, 18],
+  [13, 5, 18],
+  // underbelly taper
+  [14, 6, 17],
+  [15, 7, 16],
+  [16, 9, 14],
+  // wisp-tail, curls right at the tip
+  [17, 10, 13],
+  [18, 11, 13],
+  [19, 12, 13],
+  [20, 13, 13],
+];
+
+// Pixels that need navy but aren't covered by the wider-silhouette
+// pass: the top dome cap, the two shoulders where the underbelly
+// narrows faster than 1 px/row, and the terminal pixel below the tail.
+const NAVY_EXTRAS: readonly { x: number; y: number; w?: number }[] = [
+  { x: 9, y: 1, w: 6 }, // top dome cap
+  { x: 7, y: 16 }, // left shoulder of body→tail transition
+  { x: 16, y: 16 }, // right shoulder of body→tail transition
+  { x: 13, y: 21 }, // terminal under the tail tip
+];
+
 export function WispMascot({
   state = "idle",
   size = 4,
@@ -74,7 +119,8 @@ function Body({ state, animate }: { state: WispState; animate: boolean }) {
   const isWave = state === "wave";
 
   const cream = "var(--color-cream)";
-  const creamHi = "#ffffff"; // pure-white sparkle on top-left of each eye
+  const creamShine = "var(--color-cream-50)";
+  const sparkle = "#ffffff";
   const navy = "var(--color-navy)";
   const eye = isSuccess
     ? "var(--color-moss)"
@@ -95,65 +141,41 @@ function Body({ state, animate }: { state: WispState; animate: boolean }) {
 
   return (
     <g>
-      {/* ---------- silhouette outline (navy), drawn first ---------- */}
-      {/* top cap (rounded) */}
-      <rect x="9" y="1" width="6" height="1" fill={navy} />
-      <rect x="7" y="2" width="2" height="1" fill={navy} />
-      <rect x="15" y="2" width="2" height="1" fill={navy} />
-      <rect x="6" y="3" width="1" height="1" fill={navy} />
-      <rect x="17" y="3" width="1" height="1" fill={navy} />
-      <rect x="5" y="4" width="1" height="1" fill={navy} />
-      <rect x="18" y="4" width="1" height="1" fill={navy} />
-      {/* main trunk side outlines (y=5..14) */}
-      <rect x="4" y="5" width="1" height="10" fill={navy} />
-      <rect x="19" y="5" width="1" height="10" fill={navy} />
-      {/* base — scalloped underside */}
-      <rect x="4" y="15" width="1" height="1" fill={navy} />
-      <rect x="6" y="15" width="2" height="1" fill={navy} />
-      <rect x="10" y="15" width="2" height="1" fill={navy} />
-      <rect x="14" y="15" width="2" height="1" fill={navy} />
-      <rect x="18" y="15" width="2" height="1" fill={navy} />
-      <rect x="5" y="16" width="1" height="1" fill={navy} />
-      <rect x="8" y="16" width="2" height="1" fill={navy} />
-      <rect x="12" y="16" width="2" height="1" fill={navy} />
-      <rect x="16" y="16" width="2" height="1" fill={navy} />
+      {/* ----- navy outline: the cream silhouette grown by 1 px ----- */}
+      {CREAM_ROWS.map(([y, a, b]) => (
+        <rect
+          key={`n-${y}`}
+          x={a - 1}
+          y={y}
+          width={b - a + 3}
+          height="1"
+          fill={navy}
+        />
+      ))}
+      {NAVY_EXTRAS.map(({ x, y, w = 1 }) => (
+        <rect key={`nx-${x}-${y}`} x={x} y={y} width={w} height="1" fill={navy} />
+      ))}
 
-      {/* ---------- cream body fill ---------- */}
-      <rect x="9" y="2" width="6" height="1" fill={cream} />
-      <rect x="7" y="3" width="10" height="1" fill={cream} />
-      <rect x="6" y="4" width="12" height="1" fill={cream} />
-      <rect x="5" y="5" width="14" height="10" fill={cream} />
-      {/* fill the scallop "humps" between the bottom navy gaps */}
-      <rect x="5" y="15" width="1" height="1" fill={cream} />
-      <rect x="8" y="15" width="2" height="1" fill={cream} />
-      <rect x="12" y="15" width="2" height="1" fill={cream} />
-      <rect x="16" y="15" width="2" height="1" fill={cream} />
-      <rect x="6" y="16" width="2" height="1" fill={cream} />
-      <rect x="10" y="16" width="2" height="1" fill={cream} />
-      <rect x="14" y="16" width="2" height="1" fill={cream} />
-      {/* soft 1-px shadow under the top cap to give volume */}
-      <rect x="9" y="3" width="6" height="1" fill={cream} opacity="0.6" />
+      {/* ----- cream interior ----- */}
+      {CREAM_ROWS.map(([y, a, b]) => (
+        <rect
+          key={`c-${y}`}
+          x={a}
+          y={y}
+          width={b - a + 1}
+          height="1"
+          fill={cream}
+        />
+      ))}
 
-      {/* ---------- wisp-tail (single trailing curl) ---------- */}
-      {/* outline first */}
-      <rect x="14" y="17" width="2" height="1" fill={navy} />
-      <rect x="13" y="17" width="1" height="1" fill={navy} />
-      <rect x="16" y="17" width="1" height="1" fill={navy} />
-      <rect x="14" y="18" width="1" height="1" fill={navy} />
-      <rect x="17" y="18" width="2" height="1" fill={navy} />
-      <rect x="16" y="18" width="1" height="1" fill={navy} />
-      <rect x="17" y="19" width="1" height="1" fill={navy} />
-      <rect x="19" y="19" width="1" height="1" fill={navy} />
-      <rect x="18" y="20" width="2" height="1" fill={navy} />
-      {/* cream fill */}
-      <rect x="14" y="17" width="2" height="1" fill={cream} />
-      <rect x="15" y="18" width="2" height="1" fill={cream} />
-      <rect x="18" y="19" width="1" height="1" fill={cream} />
+      {/* forehead shine — two soft highlights just inside the dome */}
+      <rect x="8" y="4" width="1" height="1" fill={creamShine} />
+      <rect x="9" y="3" width="1" height="1" fill={creamShine} />
 
-      {/* ---------- eyes ---------- */}
+      {/* ----- eyes ----- */}
       <g className={animate ? "anim-wisp-blink" : ""}>
         {isSleep ? (
-          // Closed crescents — three-pixel arcs angled to read as "asleep"
+          // closed crescents — gentle downward arc
           <>
             <rect x="7" y="9" width="1" height="1" fill={navy} />
             <rect x="8" y="8" width="2" height="1" fill={navy} />
@@ -162,56 +184,49 @@ function Body({ state, animate }: { state: WispState; animate: boolean }) {
           </>
         ) : (
           <>
-            {/* drop-shadow under each iris for depth */}
+            {/* drop-shadow row underneath each iris */}
             <rect x="8" y="10" width="2" height="1" fill={eyeShadow} opacity="0.55" />
             <rect x="14" y="10" width="2" height="1" fill={eyeShadow} opacity="0.55" />
             {/* irises */}
             <rect x="8" y="8" width="2" height="2" fill={eye} />
             <rect x="14" y="8" width="2" height="2" fill={eye} />
-            {/* cream sparkles (top-left of each eye) */}
-            <rect x="8" y="8" width="1" height="1" fill={creamHi} />
-            <rect x="14" y="8" width="1" height="1" fill={creamHi} />
+            {/* pure-white sparkles in upper-left of each eye */}
+            <rect x="8" y="8" width="1" height="1" fill={sparkle} />
+            <rect x="14" y="8" width="1" height="1" fill={sparkle} />
           </>
         )}
       </g>
 
-      {/* ---------- mouth ---------- */}
+      {/* ----- mouth ----- */}
       {isSuccess ? (
-        // smile: small u-shape
         <>
           <rect x="10" y="12" width="1" height="1" fill={mouth} />
           <rect x="13" y="12" width="1" height="1" fill={mouth} />
           <rect x="11" y="13" width="2" height="1" fill={mouth} />
         </>
       ) : isError ? (
-        // frown: inverted u-shape
         <>
           <rect x="11" y="12" width="2" height="1" fill={mouth} />
           <rect x="10" y="13" width="1" height="1" fill={mouth} />
           <rect x="13" y="13" width="1" height="1" fill={mouth} />
         </>
       ) : isSleep ? (
-        // open little snoring mouth
         <>
+          <rect x="11" y="12" width="2" height="1" fill={mouth} opacity="0.35" />
           <rect x="11" y="13" width="2" height="1" fill={mouth} />
-          <rect x="11" y="12" width="2" height="1" fill={mouth} opacity="0.3" />
         </>
       ) : isWave ? (
-        // open grin
         <>
-          <rect x="11" y="12" width="2" height="1" fill={mouth} />
+          <rect x="10" y="12" width="4" height="1" fill={mouth} />
           <rect x="11" y="13" width="2" height="1" fill={mouth} />
-          <rect x="10" y="12" width="1" height="1" fill={mouth} />
-          <rect x="13" y="12" width="1" height="1" fill={mouth} />
         </>
       ) : (
-        // neutral: small flat line
         <rect x="11" y="13" width="2" height="1" fill={mouth} />
       )}
 
-      {/* ---------- cheek blush ---------- */}
-      <rect x="6" y="10" width="1" height="1" fill={blush} opacity="0.75" />
-      <rect x="17" y="10" width="1" height="1" fill={blush} opacity="0.75" />
+      {/* ----- cheek blush (kawaii) ----- */}
+      <rect x="6" y="10" width="1" height="1" fill={blush} opacity="0.8" />
+      <rect x="17" y="10" width="1" height="1" fill={blush} opacity="0.8" />
       <rect x="7" y="11" width="1" height="1" fill={blush} opacity="0.4" />
       <rect x="16" y="11" width="1" height="1" fill={blush} opacity="0.4" />
     </g>
@@ -219,103 +234,110 @@ function Body({ state, animate }: { state: WispState; animate: boolean }) {
 }
 
 function Accessory({ state }: { state: WispState }) {
-  // Held in the Wisp's "hand," right of body around (18..23, 10..15).
+  // Carried at the "hand" — outside the body's right edge.
   switch (state) {
     case "sending":
-      // Folded paper plane, 6×5 cream + navy outline + marigold tail flash
       return (
         <g>
           {/* outline */}
-          <rect x="18" y="10" width="6" height="1" fill="var(--color-navy)" />
-          <rect x="18" y="11" width="1" height="4" fill="var(--color-navy)" />
-          <rect x="23" y="10" width="1" height="3" fill="var(--color-navy)" />
-          <rect x="22" y="13" width="1" height="1" fill="var(--color-navy)" />
-          <rect x="21" y="14" width="1" height="1" fill="var(--color-navy)" />
-          <rect x="19" y="15" width="3" height="1" fill="var(--color-navy)" />
-          {/* paper body */}
-          <rect x="19" y="11" width="4" height="2" fill="var(--color-cream)" />
-          <rect x="19" y="13" width="3" height="1" fill="var(--color-cream)" />
-          <rect x="19" y="14" width="2" height="1" fill="var(--color-cream)" />
-          {/* center crease */}
-          <rect x="20" y="11" width="1" height="3" fill="var(--color-cream-200)" />
-          {/* marigold thrust flash trailing the plane */}
-          <rect x="17" y="13" width="1" height="1" fill="var(--color-marigold)" />
-          <rect x="16" y="14" width="1" height="1" fill="var(--color-marigold)" opacity="0.7" />
+          <rect x="19" y="9" width="5" height="1" fill="var(--color-navy)" />
+          <rect x="19" y="10" width="1" height="4" fill="var(--color-navy)" />
+          <rect x="23" y="9" width="1" height="3" fill="var(--color-navy)" />
+          <rect x="22" y="12" width="1" height="1" fill="var(--color-navy)" />
+          <rect x="21" y="13" width="1" height="1" fill="var(--color-navy)" />
+          <rect x="20" y="14" width="3" height="1" fill="var(--color-navy)" />
+          {/* fold body */}
+          <rect x="20" y="10" width="3" height="2" fill="var(--color-cream)" />
+          <rect x="20" y="12" width="2" height="1" fill="var(--color-cream)" />
+          <rect x="20" y="13" width="1" height="1" fill="var(--color-cream)" />
+          {/* center crease shadow */}
+          <rect x="21" y="10" width="1" height="3" fill="var(--color-cream-200)" />
+          {/* marigold thrust flash behind the plane */}
+          <rect x="18" y="11" width="1" height="1" fill="var(--color-marigold)" />
+          <rect x="17" y="12" width="1" height="1" fill="var(--color-marigold)" opacity="0.7" />
         </g>
       );
     case "linking":
-      // Pink key with circular bow + toothed shaft, 7×5
       return (
         <g>
-          {/* bow (ring) */}
-          <rect x="17" y="11" width="3" height="3" fill="var(--color-pink)" />
-          <rect x="18" y="12" width="1" height="1" fill="var(--color-navy)" />
+          {/* bow outline */}
+          <rect x="18" y="9" width="3" height="1" fill="var(--color-navy)" />
+          <rect x="18" y="13" width="3" height="1" fill="var(--color-navy)" />
+          <rect x="17" y="10" width="1" height="3" fill="var(--color-navy)" />
+          <rect x="21" y="10" width="1" height="3" fill="var(--color-navy)" />
+          {/* pink bow */}
+          <rect x="18" y="10" width="3" height="3" fill="var(--color-pink)" />
+          {/* hole in the bow */}
+          <rect x="19" y="11" width="1" height="1" fill="var(--color-cream)" />
+          {/* shaft outline */}
+          <rect x="21" y="11" width="3" height="1" fill="var(--color-navy)" />
+          <rect x="22" y="12" width="2" height="1" fill="var(--color-navy)" />
           {/* shaft */}
-          <rect x="20" y="12" width="3" height="1" fill="var(--color-pink)" />
+          <rect x="22" y="11" width="2" height="1" fill="var(--color-pink)" />
           {/* teeth */}
-          <rect x="22" y="13" width="1" height="1" fill="var(--color-pink)" />
-          <rect x="20" y="13" width="1" height="1" fill="var(--color-pink)" />
-          {/* navy outline */}
-          <rect x="17" y="10" width="3" height="1" fill="var(--color-navy)" />
-          <rect x="17" y="14" width="3" height="1" fill="var(--color-navy)" />
-          <rect x="16" y="11" width="1" height="3" fill="var(--color-navy)" />
-          <rect x="20" y="11" width="3" height="1" fill="var(--color-navy)" />
-          <rect x="23" y="12" width="1" height="2" fill="var(--color-navy)" />
+          <rect x="23" y="12" width="1" height="1" fill="var(--color-pink)" />
         </g>
       );
     case "pinning":
-      // Purple ticket with 4-pip numerals + perforated edge, 6×5
       return (
         <g>
           {/* outline */}
-          <rect x="17" y="10" width="7" height="1" fill="var(--color-navy)" />
-          <rect x="17" y="15" width="7" height="1" fill="var(--color-navy)" />
-          <rect x="17" y="11" width="1" height="4" fill="var(--color-navy)" />
-          <rect x="23" y="11" width="1" height="4" fill="var(--color-navy)" />
+          <rect x="18" y="9" width="6" height="1" fill="var(--color-navy)" />
+          <rect x="18" y="14" width="6" height="1" fill="var(--color-navy)" />
+          <rect x="18" y="10" width="1" height="4" fill="var(--color-navy)" />
+          <rect x="23" y="10" width="1" height="4" fill="var(--color-navy)" />
           {/* body */}
-          <rect x="18" y="11" width="5" height="4" fill="var(--color-purple)" />
-          {/* perforation tear-line in middle */}
-          <rect x="20" y="11" width="1" height="1" fill="var(--color-cream)" opacity="0.5" />
-          <rect x="20" y="13" width="1" height="1" fill="var(--color-cream)" opacity="0.5" />
-          {/* 4 cream pips */}
+          <rect x="19" y="10" width="4" height="4" fill="var(--color-purple)" />
+          {/* perforation line down the middle */}
+          <rect x="21" y="10" width="1" height="1" fill="var(--color-cream-200)" opacity="0.55" />
+          <rect x="21" y="13" width="1" height="1" fill="var(--color-cream-200)" opacity="0.55" />
+          {/* 4 pip numerals + marigold accent */}
+          <rect x="19" y="11" width="1" height="1" fill="var(--color-cream)" />
+          <rect x="20" y="11" width="1" height="1" fill="var(--color-cream)" />
+          <rect x="22" y="11" width="1" height="1" fill="var(--color-cream)" />
           <rect x="19" y="12" width="1" height="1" fill="var(--color-cream)" />
-          <rect x="21" y="12" width="1" height="1" fill="var(--color-cream)" />
-          <rect x="19" y="14" width="1" height="1" fill="var(--color-cream)" />
-          <rect x="22" y="13" width="1" height="1" fill="var(--color-marigold)" />
+          <rect x="22" y="12" width="1" height="1" fill="var(--color-marigold)" />
         </g>
       );
     case "pairing":
-      // Moss antenna with concentric signal arcs, 6×6
       return (
         <g>
-          {/* base + mast */}
-          <rect x="20" y="11" width="1" height="4" fill="var(--color-moss)" />
-          <rect x="19" y="14" width="3" height="1" fill="var(--color-moss)" />
-          <rect x="19" y="15" width="3" height="1" fill="var(--color-navy)" />
-          {/* dish bracket */}
-          <rect x="19" y="10" width="3" height="1" fill="var(--color-moss)" />
-          <rect x="19" y="9" width="1" height="1" fill="var(--color-moss)" />
-          <rect x="21" y="9" width="1" height="1" fill="var(--color-moss)" />
-          {/* signal arcs — both sides for the "broadcasting" feel */}
-          <rect x="17" y="11" width="1" height="1" fill="var(--color-moss)" />
-          <rect x="16" y="10" width="1" height="1" fill="var(--color-moss)" opacity="0.7" />
-          <rect x="23" y="11" width="1" height="1" fill="var(--color-moss)" />
-          {/* small marigold blink at the tip */}
-          <rect x="20" y="9" width="1" height="1" fill="var(--color-marigold)" />
+          {/* mast */}
+          <rect x="20" y="10" width="1" height="4" fill="var(--color-moss)" />
+          {/* dish */}
+          <rect x="19" y="9" width="3" height="1" fill="var(--color-moss)" />
+          {/* base plate */}
+          <rect x="19" y="13" width="3" height="1" fill="var(--color-moss)" />
+          {/* outline */}
+          <rect x="19" y="8" width="3" height="1" fill="var(--color-navy)" />
+          <rect x="19" y="14" width="3" height="1" fill="var(--color-navy)" />
+          <rect x="18" y="9" width="1" height="5" fill="var(--color-navy)" />
+          <rect x="22" y="9" width="1" height="5" fill="var(--color-navy)" />
+          {/* marigold tip blink */}
+          <rect x="20" y="7" width="1" height="1" fill="var(--color-marigold)" />
+          {/* signal arcs (one each side, fading) */}
+          <rect x="16" y="10" width="1" height="1" fill="var(--color-moss)" opacity="0.75" />
+          <rect x="15" y="9" width="1" height="1" fill="var(--color-moss)" opacity="0.45" />
+          <rect x="23" y="10" width="1" height="1" fill="var(--color-moss)" opacity="0.75" />
         </g>
       );
     case "wave":
-      // A little waving hand, 3×3 cream + navy outline (anchored at body edge)
+      // waving arm reaching up off the right shoulder
       return (
         <g>
-          <rect x="18" y="6" width="3" height="1" fill="var(--color-navy)" />
-          <rect x="17" y="7" width="1" height="3" fill="var(--color-navy)" />
-          <rect x="21" y="7" width="1" height="3" fill="var(--color-navy)" />
-          <rect x="18" y="10" width="3" height="1" fill="var(--color-navy)" />
-          <rect x="18" y="7" width="3" height="3" fill="var(--color-cream)" />
+          {/* arm outline */}
+          <rect x="18" y="4" width="3" height="1" fill="var(--color-navy)" />
+          <rect x="17" y="5" width="1" height="3" fill="var(--color-navy)" />
+          <rect x="21" y="5" width="1" height="3" fill="var(--color-navy)" />
+          <rect x="18" y="8" width="3" height="1" fill="var(--color-navy)" />
+          {/* cream hand */}
+          <rect x="18" y="5" width="3" height="3" fill="var(--color-cream)" />
           {/* finger creases */}
-          <rect x="19" y="7" width="1" height="1" fill="var(--color-cream-200)" />
-          <rect x="20" y="8" width="1" height="1" fill="var(--color-cream-200)" />
+          <rect x="19" y="5" width="1" height="1" fill="var(--color-cream-200)" />
+          <rect x="20" y="6" width="1" height="1" fill="var(--color-cream-200)" />
+          {/* marigold motion sparks */}
+          <rect x="22" y="3" width="1" height="1" fill="var(--color-marigold)" opacity="0.85" />
+          <rect x="23" y="5" width="1" height="1" fill="var(--color-marigold)" opacity="0.6" />
         </g>
       );
     default:
@@ -324,18 +346,17 @@ function Accessory({ state }: { state: WispState }) {
 }
 
 function SleepZ() {
-  // Two stacked Z's floating up and to the right.
   return (
     <g fill="var(--color-purple)">
-      {/* big Z */}
+      {/* large Z */}
       <rect x="19" y="1" width="3" height="1" />
       <rect x="21" y="2" width="1" height="1" />
       <rect x="20" y="3" width="1" height="1" />
       <rect x="19" y="4" width="3" height="1" />
-      {/* small Z above */}
+      {/* small Z drifting up-right */}
       <rect x="22" y="0" width="2" height="1" opacity="0.7" />
-      <rect x="22" y="2" width="2" height="1" opacity="0.7" />
       <rect x="23" y="1" width="1" height="1" opacity="0.7" />
+      <rect x="22" y="2" width="2" height="1" opacity="0.7" />
     </g>
   );
 }
