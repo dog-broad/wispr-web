@@ -5,8 +5,9 @@
 // Defaults are tuned for local dev so `pnpm dev` and `pnpm build` work
 // out of the box. Deployed environments (Vercel) override every var via
 // the platform's env config. If a deploy ever ships with a stale local
-// default, the live-env badge on /styleguide will turn red immediately
-// — we don't need a build-time guard to surface that.
+// default, fetches against the URL will fail visibly in the browser
+// devtools network panel — we don't need a build-time guard to surface
+// that.
 
 function trimTrailingSlash(url: string): string {
   return url.endsWith("/") ? url.slice(0, -1) : url;

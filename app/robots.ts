@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: ["/", "/about"],
-        disallow: ["/styleguide", "/s/", "/r", "/pair", "/me", "/login", "/auth"],
+        disallow: ["/s/", "/r", "/pair", "/me", "/login", "/auth"],
       },
     ],
     sitemap: "https://wispr.rushyendra.dev/sitemap.xml",
