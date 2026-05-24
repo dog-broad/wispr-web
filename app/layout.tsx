@@ -27,18 +27,52 @@ const vt323 = VT323({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://wispr.rushyendra.dev"),
   title: {
     default: "Wispr — encrypted clipboard for sending text, code, and files",
     template: "%s — Wispr",
   },
   description:
     "A zero-knowledge clipboard that moves text, code, and files between your devices and to other people. Encrypted in your browser before it leaves.",
-  metadataBase: new URL("https://wispr.rushyendra.dev"),
+  applicationName: "Wispr",
+  authors: [{ name: "Wispr" }],
+  generator: "Next.js",
+  keywords: [
+    "encrypted clipboard",
+    "zero knowledge",
+    "secure pastebin",
+    "send file privately",
+    "self-destructing paste",
+    "end-to-end encrypted text share",
+  ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     siteName: "Wispr",
+    locale: "en_US",
+    url: "https://wispr.rushyendra.dev/",
+    title: "Wispr — encrypted clipboard for sending text, code, and files",
+    description:
+      "Move text, code, and files between your devices and to other people. Encrypted in your browser before it leaves; the key never touches the server.",
   },
-  robots: { index: true, follow: true },
+  twitter: {
+    card: "summary_large_image",
+    title: "Wispr — encrypted clipboard",
+    description:
+      "Send anything, privately. The key lives in the URL fragment; we never see it.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
+  formatDetection: {
+    email: false,
+    telephone: false,
+    address: false,
+  },
 };
 
 export const viewport: Viewport = {
