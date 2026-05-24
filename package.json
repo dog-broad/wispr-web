@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:icons": "node scripts/build-icons.mjs",
+    "prebuild": "node scripts/build-icons.mjs",
+    "predev": "node scripts/build-icons.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
