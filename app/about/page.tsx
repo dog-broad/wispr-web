@@ -112,11 +112,16 @@ export default function AboutPage() {
         <section id="sign-in" className="mt-12 md:mt-16">
           <PixelCard variant="lifted" accent="moss">
             <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="inline-flex items-center gap-2 font-[var(--font-display)] text-[20px] tracking-tight">
-                  <PixelIcon name="zap" size={18} />
-                  invite-only, for v1
-                </p>
+              <div className="w-full">
+                <div className="flex items-center gap-3">
+                  <p className="inline-flex items-center gap-2 font-[var(--font-display)] text-[20px] tracking-tight">
+                    <PixelIcon name="zap" size={18} />
+                    invite-only, for v1
+                  </p>
+                  <span className="ml-auto md:hidden">
+                    <WispMascot state="success" size={2} />
+                  </span>
+                </div>
                 <p className="mt-2 w-full font-[var(--font-body)] text-[14px] opacity-85 md:max-w-[52ch]">
                   Accounts unlock PIN and My clips. Sign-up is by invite while we
                   shake out the build. Anonymous Link and Pair stay free forever.

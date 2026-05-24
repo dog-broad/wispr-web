@@ -31,6 +31,9 @@ function Shell({ accent, mascot, badge, heading, subhead, body, actions }: Shell
             <PixelBadge tone={accent === "pink" ? "error" : accent === "marigold" ? "warn" : "success"}>
               {badge}
             </PixelBadge>
+            <span className="ml-auto md:hidden">
+              <WispMascot state={mascot} size={2} />
+            </span>
           </div>
 
           <h1 className="font-[var(--font-display)] text-[28px] leading-[1.05] tracking-tight md:text-[36px]">

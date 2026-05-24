@@ -46,6 +46,9 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
               <PixelIcon name="forward" size={12} />
               sent via link
             </PixelBadge>
+            <span className="ml-auto md:hidden">
+              <WispMascot state="sending" size={2} />
+            </span>
             {copied ? (
               <span className="inline-flex items-center gap-1 font-[var(--font-body)] text-[14px] text-[var(--color-moss)]">
                 <PixelIcon name="check" size={14} />
