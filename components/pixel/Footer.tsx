@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PixelLogo } from "./PixelLogo";
-import { HeartIcon, SparkleIcon } from "./icons";
+import { PixelIcon } from "./PixelIcon";
 import { cn } from "@/lib/cn";
 
 export function Footer({ className }: { className?: string }) {
@@ -34,11 +34,11 @@ export function Footer({ className }: { className?: string }) {
         <p className="inline-flex items-center gap-2 font-[var(--font-mono)] text-[14px] opacity-70">
           made with
           <span className="text-[var(--color-pink)]">
-            <HeartIcon size={14} />
+            <PixelIcon name="heart" size={14} />
           </span>
           and pixels
           <span className="text-[var(--color-marigold)]">
-            <SparkleIcon size={14} />
+            <PixelIcon name="zap" size={14} />
           </span>
         </p>
       </div>
