@@ -23,9 +23,6 @@ export function Footer({ className }: { className?: string }) {
           <Link href="/about" className="underline underline-offset-4 decoration-[var(--color-pink)] decoration-[3px]">
             About
           </Link>
-          <Link href="/styleguide" className="underline underline-offset-4 decoration-[var(--color-purple)] decoration-[3px]">
-            Style guide
-          </Link>
           <a
             href="https://github.com/dog-broad/wispr-web"
             className="underline underline-offset-4 decoration-[var(--color-moss)] decoration-[3px]"

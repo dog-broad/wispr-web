@@ -30,7 +30,7 @@ cd ../wispr-api && docker compose up -d --build
 pnpm dev
 ```
 
-Then open <http://localhost:3000>. The `/styleguide` page has a "live env" badge at the top that pings the api `/health` endpoint and turns moss-green when the wire is up.
+Then open <http://localhost:3000>. Open the browser devtools network panel to see fetches against the api succeed (or not) when you use the composer.
 
 Build / verify:
 
@@ -38,6 +38,7 @@ Build / verify:
 pnpm build        # production build, prerenders all routes
 pnpm typecheck    # tsc --noEmit, strict
 pnpm lint         # next lint
+pnpm test         # vitest run
 pnpm format       # prettier --write
 ```
 
@@ -45,11 +46,12 @@ pnpm format       # prettier --write
 
 | Path           | Purpose                                                                       | Indexable |
 |----------------|-------------------------------------------------------------------------------|-----------|
-| `/`            | Home — composer shell with the four-mode strip                                | yes       |
+| `/`            | Home — composer with the four-mode strip                                      | yes       |
 | `/about`       | Plain-English explanation of how Wispr works + the security model             | yes       |
-| `/styleguide`  | Internal visual language reference. Decommissions before `link-foundation` merges to `main`. | no        |
-| `/robots.txt`  | Allow `/` and `/about`; disallow receive routes + `/styleguide`               | —         |
+| `/s/[id]`      | Receive a Link share — SSR shell + client-side decrypt                        | no        |
+| `/robots.txt`  | Allow `/` and `/about`; disallow receive routes                               | —         |
 | `/sitemap.xml` | Marketing pages only                                                          | —         |
+| `/opengraph-image` | 1200×630 OG card for social previews                                      | —         |
 
 ## Stack
 
@@ -67,32 +69,37 @@ pnpm format       # prettier --write
 |------------------------------|------------------------|--------------------------------------------------|
 | `NEXT_PUBLIC_API_BASE_URL`   | `http://localhost:8000`| Base URL of the wispr-api service. No trailing slash. |
 
-`lib/env.ts` falls back to the dev defaults if a var is missing, in any environment. Deployed environments override via Vercel's platform env config. A stale-default deploy is caught visibly by the live-env badge on `/styleguide`, so we don't need a build-time guard.
+`lib/env.ts` falls back to the dev defaults if a var is missing, in any environment. Deployed environments override via Vercel's platform env config.
 
 ## Aesthetic
 
 Full retro pixel art. Three fonts (Silkscreen display, Pixelify Sans body, VT323 for digits and mono), six colors (cream `#f4ecd8`, navy `#1f1a2e`, pink `#ff6188`, purple `#8b5fbf`, moss `#7a9e7e`, marigold `#f9b572`), chunky pixel borders, offset solid shadows, `steps()`-only motion, the Wisp mascot.
 
-The full rule set is encoded directly in the design tokens (`app/globals.css` under `@theme`) and the primitive components in `components/pixel/`. The `/styleguide` route is the living reference while the first ship cycle is in flight; the real production pages adopt the same primitives so the demo can be removed without visual regression.
+The full rule set is encoded directly in the design tokens (`app/globals.css` under `@theme`) and the primitive components in `components/pixel/`.
 
 ## Layout
 
 ```
 app/
 ├── layout.tsx        Root layout — fonts, theme bootstrap, atmosphere layers
-├── page.tsx          /
+├── page.tsx          /   (home with composer)
 ├── about/page.tsx    /about
-├── styleguide/       /styleguide (noindex; pre-merge decommission)
+├── s/[id]/           /s/[id] receive route (server shell + client decrypt)
+├── opengraph-image.tsx  generated OG card
 ├── globals.css       Design tokens (@theme) + atmosphere + motion
 ├── robots.ts         Allow / and /about
 └── sitemap.ts        Marketing-only
 
-components/pixel/     Pixel design primitives — buttons, cards, inputs,
-                      badges, pills, logo, mascot, theme toggle, atmosphere,
-                      LiveApiBadge (smoke-pings /health on /styleguide)
+components/
+├── pixel/            Pixel design primitives — buttons, cards, inputs,
+│                     badges, pills, logo, mascot, QR, theme toggle,
+│                     atmosphere
+└── composer/         Composer (state machine) + SentState (QR + countdown)
 
 lib/
 ├── cn.ts             Tiny className joiner
-└── env.ts            Typed env loader — single read site for process.env;
-                      falls back to dev defaults in any environment
+├── env.ts            Typed env loader — single read site for process.env
+└── crypto/           WebCrypto in a Web Worker: primitives, types,
+                      worker entry, client wrapper, base64url + envelope
+                      helpers
 ```
