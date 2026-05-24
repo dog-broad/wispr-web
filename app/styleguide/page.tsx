@@ -8,6 +8,7 @@ import { PixelBadge } from "@/components/pixel/PixelBadge";
 import { WispMascot, type WispState } from "@/components/pixel/WispMascot";
 import { PixelLogo } from "@/components/pixel/PixelLogo";
 import { LiveApiBadge } from "@/components/pixel/LiveApiBadge";
+import { CryptoSelfTest } from "@/components/pixel/CryptoSelfTest";
 import {
   ClockIcon,
   EyeIcon,
@@ -110,6 +111,7 @@ export default function StyleguidePage() {
           <nav className="mt-6 flex flex-wrap gap-2 font-[var(--font-body)] text-[14px]">
             {[
               "live env",
+              "crypto",
               "palette",
               "type",
               "logo",
@@ -146,6 +148,23 @@ export default function StyleguidePage() {
               {" "}<code className="num text-[13px]">http://localhost:8000</code>) and hits
               {" "}<code className="num text-[13px]">/health</code>. If it stays red, bring up the api with
               {" "}<code className="num text-[13px]">cd ../wispr-api && docker compose up -d</code>.
+            </p>
+          </div>
+        </Section>
+
+        {/* Crypto self-test */}
+        <Section
+          id="crypto"
+          title="crypto"
+          subtitle="webcrypto + web worker — generates a key, encrypts, decrypts, asserts the round-trip"
+        >
+          <div className="border-[3px] border-[var(--border)] bg-[var(--bg-lifted)] p-4 shadow-[var(--shadow-pixel)]">
+            <CryptoSelfTest />
+            <p className="mt-3 font-[var(--font-body)] text-[14px] opacity-80">
+              Runs entirely in the browser via{" "}
+              <code className="num text-[13px]">lib/crypto/client.ts</code> →{" "}
+              <code className="num text-[13px]">lib/crypto/worker.ts</code>. AES-GCM-256 with a fresh
+              12-byte IV per call. Keys never touch the network or any persistent storage.
             </p>
           </div>
         </Section>
