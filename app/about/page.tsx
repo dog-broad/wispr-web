@@ -4,13 +4,7 @@ import { Footer } from "@/components/pixel/Footer";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
 import { WispMascot } from "@/components/pixel/WispMascot";
-import {
-  KeyIcon,
-  LockIcon,
-  PairIcon,
-  FloppyIcon,
-  SparkleIcon,
-} from "@/components/pixel/icons";
+import { PixelIcon } from "@/components/pixel/PixelIcon";
 
 export const metadata: Metadata = {
   // The root layout's title template appends " — Wispr"; declare just
@@ -68,19 +62,19 @@ export default function AboutPage() {
           <PixelCard variant="lifted" accent="purple" title="four modes">
             <ul className="space-y-3 font-[var(--font-body)] text-[16px]">
               <li className="flex items-start gap-3">
-                <span className="mt-0.5 text-[var(--color-pink)]"><KeyIcon size={18} /></span>
+                <span className="mt-0.5 text-[var(--color-pink)]"><PixelIcon name="link" size={18} /></span>
                 <span><strong>Link</strong> — one-shot URL, burned after a read. Anyone can make one.</span>
               </li>
               <li className="flex items-start gap-3">
-                <span className="mt-0.5 text-[var(--color-purple)]"><LockIcon size={18} /></span>
+                <span className="mt-0.5 text-[var(--color-purple)]"><PixelIcon name="lock" size={18} /></span>
                 <span><strong>PIN</strong> — 4 digits. Members only. Convenient. Not zero-knowledge.</span>
               </li>
               <li className="flex items-start gap-3">
-                <span className="mt-0.5 text-[var(--color-marigold)]"><PairIcon size={18} /></span>
+                <span className="mt-0.5 text-[var(--color-marigold)]"><PixelIcon name="devices" size={18} /></span>
                 <span><strong>Pair</strong> — two devices, live, peer-to-peer. Nothing persisted.</span>
               </li>
               <li className="flex items-start gap-3">
-                <span className="mt-0.5 text-[var(--color-moss)]"><FloppyIcon size={18} /></span>
+                <span className="mt-0.5 text-[var(--color-moss)]"><PixelIcon name="save" size={18} /></span>
                 <span><strong>My clips</strong> — your own history. Members only. Zero-knowledge.</span>
               </li>
             </ul>
@@ -118,11 +112,16 @@ export default function AboutPage() {
         <section id="sign-in" className="mt-12 md:mt-16">
           <PixelCard variant="lifted" accent="moss">
             <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="inline-flex items-center gap-2 font-[var(--font-display)] text-[20px] tracking-tight">
-                  <SparkleIcon size={18} />
-                  invite-only, for v1
-                </p>
+              <div className="w-full">
+                <div className="flex items-center gap-3">
+                  <p className="inline-flex items-center gap-2 font-[var(--font-display)] text-[20px] tracking-tight">
+                    <PixelIcon name="zap" size={18} />
+                    invite-only, for v1
+                  </p>
+                  <span className="ml-auto md:hidden">
+                    <WispMascot state="success" size={2} />
+                  </span>
+                </div>
                 <p className="mt-2 w-full font-[var(--font-body)] text-[14px] opacity-85 md:max-w-[52ch]">
                   Accounts unlock PIN and My clips. Sign-up is by invite while we
                   shake out the build. Anonymous Link and Pair stay free forever.

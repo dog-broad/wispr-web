@@ -3,20 +3,7 @@ import { Footer } from "@/components/pixel/Footer";
 import { Composer } from "@/components/composer/Composer";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
-import {
-  ClockIcon,
-  EyeIcon,
-  LockIcon,
-  KeyIcon,
-  QrIcon,
-  SendIcon,
-  PairIcon,
-  FloppyIcon,
-  EnvelopeIcon,
-  SparkleIcon,
-  HeartIcon,
-  CommandIcon,
-} from "@/components/pixel/icons";
+import { PixelIcon } from "@/components/pixel/PixelIcon";
 
 export default function HomePage() {
   return (
@@ -32,7 +19,7 @@ export default function HomePage() {
 
           <div className="anim-drift-in relative z-10 flex flex-col items-start gap-4 md:gap-6">
             <PixelBadge tone="info">
-              <SparkleIcon size={12} />
+              <PixelIcon name="zap" size={12} />
               <span className="num">v1</span> in flight · link-foundation
             </PixelBadge>
 
@@ -56,7 +43,7 @@ export default function HomePage() {
         {/* Pair affordance */}
         <div className="mt-4 flex flex-col items-stretch gap-3 md:flex-row md:items-center md:justify-between">
           <p className="inline-flex items-center gap-2 font-[var(--font-body)] text-[14px]">
-            <PairIcon size={16} />
+            <PixelIcon name="devices" size={16} />
             Or pair a device live →
           </p>
           <div className="inline-flex items-center gap-2 font-[var(--font-mono)] text-[16px]">
@@ -66,7 +53,7 @@ export default function HomePage() {
               or
             </span>
             <span className="inline-flex items-center gap-1 opacity-90">
-              <QrIcon size={16} /> scan
+              <PixelIcon name="grid" size={16} /> scan
             </span>
           </div>
         </div>
@@ -83,14 +70,14 @@ export default function HomePage() {
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <ModeCard
               accent="pink"
-              icon={<KeyIcon size={28} />}
+              icon={<PixelIcon name="link" size={28} />}
               title="Link"
               who="anyone"
               note="One-shot URL. Burned after one read. ZK."
             />
             <ModeCard
               accent="purple"
-              icon={<LockIcon size={28} />}
+              icon={<PixelIcon name="lock" size={28} />}
               title="PIN"
               who="members"
               note={
@@ -101,14 +88,14 @@ export default function HomePage() {
             />
             <ModeCard
               accent="marigold"
-              icon={<PairIcon size={28} />}
+              icon={<PixelIcon name="devices" size={28} />}
               title="Pair"
               who="anyone"
               note="Device-to-device, live, peer-to-peer. ZK."
             />
             <ModeCard
               accent="moss"
-              icon={<FloppyIcon size={28} />}
+              icon={<PixelIcon name="save" size={28} />}
               title="My clips"
               who="members"
               note="Your own history. Synced across devices. ZK."
@@ -116,7 +103,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Decorative illustration row, marquee on md+ */}
+        {/* Decorative illustration row, marquee on md+ — bespoke pixel
+            glyphs, not the shared icon set. */}
         <section
           aria-hidden
           className="mt-12 hidden overflow-hidden border-y-[3px] border-[var(--border)] bg-[var(--bg-sunk)] py-4 md:block"
@@ -140,15 +128,148 @@ export default function HomePage() {
   );
 }
 
+// --- Marquee illustrations (bespoke, 16×16 pixel grid) -------------------
+// These live with the page rather than in the icon set on purpose: the
+// marquee chrome is brand-load-bearing decoration. Distinct, characterful
+// glyphs read better here than the same pixelarticons we use elsewhere.
+
 const marqueeItems = [
-  { label: "text", icon: <SendIcon size={20} /> },
-  { label: "code", icon: <CommandIcon size={20} /> },
-  { label: "links", icon: <KeyIcon size={20} /> },
-  { label: "files", icon: <FloppyIcon size={20} /> },
-  { label: "QRs", icon: <QrIcon size={20} /> },
-  { label: "PINs", icon: <LockIcon size={20} /> },
-  { label: "letters", icon: <EnvelopeIcon size={20} /> },
+  { label: "text", icon: <MarqueeSend /> },
+  { label: "code", icon: <MarqueeCode /> },
+  { label: "links", icon: <MarqueeChain /> },
+  { label: "files", icon: <MarqueeFile /> },
+  { label: "QRs", icon: <MarqueeQr /> },
+  { label: "PINs", icon: <MarqueeKeypad /> },
+  { label: "letters", icon: <MarqueeMail /> },
 ];
+
+function MarqueeFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 16 16"
+      shapeRendering="crispEdges"
+      aria-hidden
+      className="pixel inline-block align-middle"
+    >
+      <g fill="currentColor">{children}</g>
+    </svg>
+  );
+}
+
+function MarqueeSend() {
+  return (
+    <MarqueeFrame>
+      <rect x="2" y="3" width="12" height="1" />
+      <rect x="3" y="4" width="11" height="1" />
+      <rect x="5" y="5" width="9" height="1" />
+      <rect x="7" y="6" width="7" height="1" />
+      <rect x="9" y="7" width="5" height="1" />
+      <rect x="7" y="8" width="2" height="1" />
+      <rect x="5" y="9" width="2" height="1" />
+      <rect x="3" y="10" width="2" height="1" />
+      <rect x="2" y="11" width="2" height="1" />
+    </MarqueeFrame>
+  );
+}
+
+function MarqueeCode() {
+  return (
+    <MarqueeFrame>
+      <rect x="3" y="3" width="3" height="1" />
+      <rect x="10" y="3" width="3" height="1" />
+      <rect x="2" y="4" width="1" height="3" />
+      <rect x="13" y="4" width="1" height="3" />
+      <rect x="3" y="6" width="10" height="1" />
+      <rect x="5" y="7" width="2" height="2" />
+      <rect x="9" y="7" width="2" height="2" />
+      <rect x="3" y="9" width="10" height="1" />
+      <rect x="2" y="9" width="1" height="3" />
+      <rect x="13" y="9" width="1" height="3" />
+      <rect x="3" y="12" width="3" height="1" />
+      <rect x="10" y="12" width="3" height="1" />
+    </MarqueeFrame>
+  );
+}
+
+function MarqueeChain() {
+  return (
+    <MarqueeFrame>
+      <rect x="3" y="5" width="4" height="4" />
+      <rect x="4" y="6" width="2" height="2" fill="var(--bg-sunk)" />
+      <rect x="7" y="6" width="7" height="2" />
+      <rect x="11" y="8" width="1" height="2" />
+      <rect x="13" y="8" width="1" height="2" />
+    </MarqueeFrame>
+  );
+}
+
+function MarqueeFile() {
+  return (
+    <MarqueeFrame>
+      <rect x="2" y="2" width="11" height="1" />
+      <rect x="13" y="2" width="1" height="11" />
+      <rect x="2" y="13" width="12" height="1" />
+      <rect x="2" y="2" width="1" height="12" />
+      <rect x="4" y="3" width="6" height="3" fill="var(--color-cream)" />
+      <rect x="11" y="3" width="1" height="3" fill="var(--color-cream)" />
+      <rect x="4" y="8" width="8" height="5" fill="var(--color-cream)" />
+      <rect x="5" y="9" width="6" height="1" />
+      <rect x="5" y="11" width="6" height="1" />
+    </MarqueeFrame>
+  );
+}
+
+function MarqueeQr() {
+  return (
+    <MarqueeFrame>
+      <rect x="2" y="2" width="5" height="5" />
+      <rect x="3" y="3" width="3" height="3" fill="var(--bg-sunk)" />
+      <rect x="4" y="4" width="1" height="1" />
+      <rect x="9" y="2" width="5" height="5" />
+      <rect x="10" y="3" width="3" height="3" fill="var(--bg-sunk)" />
+      <rect x="11" y="4" width="1" height="1" />
+      <rect x="2" y="9" width="5" height="5" />
+      <rect x="3" y="10" width="3" height="3" fill="var(--bg-sunk)" />
+      <rect x="4" y="11" width="1" height="1" />
+      <rect x="9" y="9" width="2" height="2" />
+      <rect x="12" y="9" width="2" height="2" />
+      <rect x="9" y="12" width="2" height="2" />
+      <rect x="12" y="12" width="2" height="2" />
+    </MarqueeFrame>
+  );
+}
+
+function MarqueeKeypad() {
+  return (
+    <MarqueeFrame>
+      <rect x="5" y="2" width="6" height="1" />
+      <rect x="4" y="3" width="1" height="3" />
+      <rect x="11" y="3" width="1" height="3" />
+      <rect x="3" y="6" width="10" height="7" />
+      <rect x="7" y="8" width="2" height="3" fill="var(--bg-sunk)" />
+    </MarqueeFrame>
+  );
+}
+
+function MarqueeMail() {
+  return (
+    <MarqueeFrame>
+      <rect x="2" y="4" width="12" height="1" />
+      <rect x="2" y="5" width="1" height="7" />
+      <rect x="13" y="5" width="1" height="7" />
+      <rect x="2" y="12" width="12" height="1" />
+      <rect x="3" y="5" width="2" height="1" />
+      <rect x="11" y="5" width="2" height="1" />
+      <rect x="4" y="6" width="2" height="1" />
+      <rect x="10" y="6" width="2" height="1" />
+      <rect x="5" y="7" width="2" height="1" />
+      <rect x="9" y="7" width="2" height="1" />
+      <rect x="7" y="8" width="2" height="1" />
+    </MarqueeFrame>
+  );
+}
 
 function PinSlots() {
   return (
@@ -195,38 +316,47 @@ function ModeCard({
   );
 }
 
-// Decorative scatter — only renders on md+, sits behind hero text
+// Decorative scatter — only renders on md+, sits behind hero text. Uses
+// PixelIcon for the recognizable pictograms and one bespoke star for the
+// brand accent.
 function DecorScatter() {
   return (
     <div className="relative h-full w-full opacity-70">
       <span className="absolute right-2 top-4 text-[var(--color-marigold)]">
-        <SparkleIcon size={20} />
+        <PixelIcon name="zap" size={20} />
       </span>
       <span className="absolute right-24 top-20 text-[var(--color-purple)]">
-        <FloppyIcon size={28} />
+        <PixelIcon name="save" size={28} />
       </span>
       <span className="absolute right-12 bottom-2 text-[var(--color-moss)]">
-        <EnvelopeIcon size={24} />
+        <PixelIcon name="mail" size={24} />
       </span>
       <span className="absolute right-40 bottom-10 text-[var(--color-pink)]">
-        <HeartLikeStar />
+        <BrandStar />
       </span>
       <span className="absolute right-64 top-32 text-[var(--color-pink)]">
-        <ClockIcon size={18} />
+        <PixelIcon name="clock" size={18} />
       </span>
       <span className="absolute right-2 bottom-32 text-[var(--color-marigold)]">
-        <EyeIcon size={20} />
+        <PixelIcon name="eye" size={20} />
       </span>
       <span className="absolute right-80 bottom-4 text-[var(--color-moss)]">
-        <HeartIcon size={16} />
+        <PixelIcon name="heart" size={16} />
       </span>
     </div>
   );
 }
 
-function HeartLikeStar() {
+function BrandStar() {
   return (
-    <svg width="20" height="20" viewBox="0 0 16 16" shapeRendering="crispEdges">
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 16 16"
+      shapeRendering="crispEdges"
+      aria-hidden
+      className="pixel inline-block align-middle"
+    >
       <g fill="currentColor">
         <rect x="7" y="0" width="2" height="2" />
         <rect x="6" y="2" width="4" height="2" />
