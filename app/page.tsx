@@ -1,16 +1,12 @@
 import { Header } from "@/components/pixel/Header";
 import { Footer } from "@/components/pixel/Footer";
-import { PixelButton } from "@/components/pixel/PixelButton";
+import { Composer } from "@/components/composer/Composer";
 import { PixelCard } from "@/components/pixel/PixelCard";
-import { PixelTextarea } from "@/components/pixel/PixelInput";
-import { PixelPill } from "@/components/pixel/PixelPill";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
-import { WispMascot } from "@/components/pixel/WispMascot";
 import {
   ClockIcon,
   EyeIcon,
   LockIcon,
-  CommandIcon,
   KeyIcon,
   QrIcon,
   SendIcon,
@@ -18,6 +14,8 @@ import {
   FloppyIcon,
   EnvelopeIcon,
   SparkleIcon,
+  HeartIcon,
+  CommandIcon,
 } from "@/components/pixel/icons";
 
 export default function HomePage() {
@@ -35,7 +33,7 @@ export default function HomePage() {
           <div className="anim-drift-in relative z-10 flex flex-col items-start gap-4 md:gap-6">
             <PixelBadge tone="info">
               <SparkleIcon size={12} />
-              <span className="num">v1</span> in flight · <span className="num">M1</span> link-foundation
+              <span className="num">v1</span> in flight · link-foundation
             </PixelBadge>
 
             <h1 className="font-[var(--font-display)] text-[40px] leading-[1] tracking-tight md:text-[56px] lg:text-[64px]">
@@ -53,95 +51,27 @@ export default function HomePage() {
         </section>
 
         {/* Composer */}
-        <section className="relative">
-          {/* Wisp peeks above the composer on md+; inline near the CTAs on mobile */}
-          <div className="absolute -top-8 right-4 z-10 hidden md:block md:-top-12 md:right-8">
-            <WispMascot state="wave" size={3} />
+        <Composer />
+
+        {/* Pair affordance */}
+        <div className="mt-4 flex flex-col items-stretch gap-3 md:flex-row md:items-center md:justify-between">
+          <p className="inline-flex items-center gap-2 font-[var(--font-body)] text-[14px]">
+            <PairIcon size={16} />
+            Or pair a device live →
+          </p>
+          <div className="inline-flex items-center gap-2 font-[var(--font-mono)] text-[16px]">
+            <span className="opacity-60">Got a PIN?</span>
+            <PinSlots />
+            <span aria-hidden className="opacity-60">
+              or
+            </span>
+            <span className="inline-flex items-center gap-1 opacity-90">
+              <QrIcon size={16} /> scan
+            </span>
           </div>
+        </div>
 
-          <PixelCard variant="lifted" accent="pink">
-            <div className="flex flex-col gap-4">
-              <PixelTextarea
-                placeholder="Type or paste anything.
-text — code — urls — files (up to 25 MB)
-Encrypted in your browser before it leaves."
-                rows={6}
-              />
-
-              <div className="flex flex-wrap gap-2">
-                <PixelPill
-                  icon={<ClockIcon size={12} />}
-                  label="lifetime"
-                  value="10 min"
-                />
-                <PixelPill
-                  icon={<EyeIcon size={12} />}
-                  label="reads"
-                  value="1"
-                />
-                <PixelPill
-                  icon={<LockIcon size={12} />}
-                  label="password"
-                  value="off"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <PixelButton
-                  variant="primary"
-                  size="lg"
-                  block
-                  leading={<KeyIcon size={20} />}
-                  trailing={
-                    <kbd className="ml-1 inline-flex items-center gap-1 border-2 border-current px-1.5 py-0.5 font-[var(--font-mono)] text-[12px]">
-                      <CommandIcon size={12} />↵
-                    </kbd>
-                  }
-                >
-                  Get a link
-                </PixelButton>
-                <PixelButton
-                  variant="secondary"
-                  size="lg"
-                  block
-                  leading={<LockIcon size={20} />}
-                  disabled
-                  title="Sign in to share by PIN"
-                >
-                  Get a PIN
-                </PixelButton>
-              </div>
-
-              <p className="flex items-center gap-2 font-[var(--font-body)] text-[14px] opacity-70">
-                <span className="md:hidden">
-                  <WispMascot state="linking" size={2} animate={false} />
-                </span>
-                <span>
-                  Only the link-holder can read it. Sign in to share by PIN —
-                  easier for groups.
-                </span>
-              </p>
-            </div>
-          </PixelCard>
-
-          {/* Pair affordance */}
-          <div className="mt-4 flex flex-col items-stretch gap-3 md:flex-row md:items-center md:justify-between">
-            <p className="inline-flex items-center gap-2 font-[var(--font-body)] text-[14px]">
-              <PairIcon size={16} />
-              Or pair a device live →
-            </p>
-            <div className="inline-flex items-center gap-2 font-[var(--font-mono)] text-[16px]">
-              <span className="opacity-60">Got a PIN?</span>
-              <PinSlots />
-              <span aria-hidden className="opacity-60">or</span>
-              <span className="inline-flex items-center gap-1 opacity-90">
-                <QrIcon size={16} /> scan
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* Mode strip — illustrated */}
+        {/* Mode strip */}
         <section className="mt-12 md:mt-20">
           <h2 className="font-[var(--font-display)] text-[24px] tracking-tight md:text-[32px]">
             four ways to send.
@@ -163,7 +93,11 @@ Encrypted in your browser before it leaves."
               icon={<LockIcon size={28} />}
               title="PIN"
               who="members"
-              note={<><span className="num">4</span> digits. Anyone with the PIN can read it.</>}
+              note={
+                <>
+                  <span className="num">4</span> digits. Anyone with the PIN can read it.
+                </>
+              }
             />
             <ModeCard
               accent="marigold"
@@ -276,6 +210,15 @@ function DecorScatter() {
       </span>
       <span className="absolute right-40 bottom-10 text-[var(--color-pink)]">
         <HeartLikeStar />
+      </span>
+      <span className="absolute right-64 top-32 text-[var(--color-pink)]">
+        <ClockIcon size={18} />
+      </span>
+      <span className="absolute right-2 bottom-32 text-[var(--color-marigold)]">
+        <EyeIcon size={20} />
+      </span>
+      <span className="absolute right-80 bottom-4 text-[var(--color-moss)]">
+        <HeartIcon size={16} />
       </span>
     </div>
   );

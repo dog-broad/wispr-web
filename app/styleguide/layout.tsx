@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Style guide — Wispr",
   description:
-    "Internal visual language reference. Not for public eyes. Will be decommissioned before M1 ships.",
+    "Internal visual language reference. Not for public eyes. Will be removed before the first ship.",
   robots: { index: false, follow: false },
 };
 
