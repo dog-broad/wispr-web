@@ -2,24 +2,23 @@
 // Read once, validated, frozen. Components import the typed `env` object
 // instead of reaching into `process.env` directly.
 //
-// Defaults are tuned for local dev so `pnpm dev` and `pnpm build` work
-// out of the box. Deployed environments (Vercel) override every var via
-// the platform's env config. If a deploy ever ships with a stale local
-// default, fetches against the URL will fail visibly in the browser
-// devtools network panel — we don't need a build-time guard to surface
-// that.
+// IMPORTANT: every `NEXT_PUBLIC_*` reference in this file must be a literal
+// dot-access on `process.env` (e.g. `process.env.NEXT_PUBLIC_FOO`). Next.js
+// only inlines `NEXT_PUBLIC_*` vars into the client bundle when it can
+// statically prove the variable name at build time. A `process.env[name]`
+// dynamic indexed access — even via a tiny helper function — is opaque to
+// the bundler, so it ships the lookup as-is and the runtime browser shim
+// returns `undefined`. The result is the fallback wins on every prod page
+// silently, which is the worst kind of bug. Keep the reads literal.
 
 function trimTrailingSlash(url: string): string {
   return url.endsWith("/") ? url.slice(0, -1) : url;
 }
 
-function envOr(key: string, fallback: string): string {
-  const raw = process.env[key];
-  return raw && raw.length > 0 ? raw : fallback;
-}
-
 export const env = Object.freeze({
-  apiBaseUrl: trimTrailingSlash(envOr("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000")),
+  apiBaseUrl: trimTrailingSlash(
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000",
+  ),
 });
 
 export type Env = typeof env;
