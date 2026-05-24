@@ -3,17 +3,11 @@
 import { useCallback, useState } from "react";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
+import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { PixelPill } from "@/components/pixel/PixelPill";
 import { PixelSelectPill } from "@/components/pixel/PixelSelectPill";
 import { PixelTextarea } from "@/components/pixel/PixelInput";
 import { WispMascot } from "@/components/pixel/WispMascot";
-import {
-  ClockIcon,
-  CommandIcon,
-  EyeIcon,
-  KeyIcon,
-  LockIcon,
-} from "@/components/pixel/icons";
 import {
   base64Encode,
   base64urlEncode,
@@ -139,21 +133,21 @@ Encrypted in your browser before it leaves."
 
           <div className="flex flex-wrap gap-2">
             <PixelSelectPill
-              icon={<ClockIcon size={12} />}
+              icon={<PixelIcon name="clock" size={12} />}
               label="lifetime"
               value={ttlSeconds}
               options={LIFETIME_OPTIONS}
               onChange={setTtlSeconds}
             />
             <PixelPill
-              icon={<EyeIcon size={12} />}
+              icon={<PixelIcon name="eye" size={12} />}
               label="reads"
               value="1"
               disabled
               title="Link burns after one read; multi-read PINs ship later"
             />
             <PixelPill
-              icon={<LockIcon size={12} />}
+              icon={<PixelIcon name="lock" size={12} />}
               label="password"
               value="off"
               disabled
@@ -166,10 +160,10 @@ Encrypted in your browser before it leaves."
               variant="primary"
               size="lg"
               block
-              leading={<KeyIcon size={20} />}
+              leading={<PixelIcon name="link" size={20} />}
               trailing={
                 <kbd className="ml-1 inline-flex items-center gap-1 border-2 border-current px-1.5 py-0.5 font-[var(--font-mono)] text-[12px]">
-                  <CommandIcon size={12} />↵
+                  <PixelIcon name="command" size={12} />↵
                 </kbd>
               }
               onClick={send}
@@ -185,7 +179,7 @@ Encrypted in your browser before it leaves."
               variant="secondary"
               size="lg"
               block
-              leading={<LockIcon size={20} />}
+              leading={<PixelIcon name="lock" size={20} />}
               disabled
               title="Sign in to share by PIN"
             >

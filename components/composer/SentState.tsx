@@ -6,7 +6,7 @@ import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelQr } from "@/components/pixel/PixelQr";
 import { WispMascot } from "@/components/pixel/WispMascot";
-import { CheckIcon, CopyIcon, EyeIcon, SendIcon, SparkleIcon } from "@/components/pixel/icons";
+import { PixelIcon } from "@/components/pixel/PixelIcon";
 
 export interface SentDetails {
   id: string;
@@ -43,12 +43,15 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <PixelBadge tone="success">
-              <SendIcon size={12} />
+              <PixelIcon name="forward" size={12} />
               sent via link
             </PixelBadge>
+            <span className="ml-auto md:hidden">
+              <WispMascot state="sending" size={2} />
+            </span>
             {copied ? (
               <span className="inline-flex items-center gap-1 font-[var(--font-body)] text-[14px] text-[var(--color-moss)]">
-                <CheckIcon size={14} />
+                <PixelIcon name="check" size={14} />
                 copied
               </span>
             ) : (
@@ -74,7 +77,7 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
                 <PixelButton
                   variant="ghost"
                   size="sm"
-                  leading={<CopyIcon size={14} />}
+                  leading={<PixelIcon name="copy" size={14} />}
                   onClick={copyAgain}
                 >
                   {copied ? "Copy again" : "Copy URL"}
@@ -83,12 +86,12 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
 
               <div className="grid grid-cols-1 gap-2 font-[var(--font-body)] text-[14px] sm:grid-cols-2">
                 <p className="flex items-center gap-2">
-                  <SparkleIcon size={14} />
+                  <PixelIcon name="zap" size={14} />
                   <span className="opacity-70">Expires in</span>
                   <span className="num font-semibold">{remaining}</span>
                 </p>
                 <p className="flex items-center gap-2">
-                  <EyeIcon size={14} />
+                  <PixelIcon name="eye" size={14} />
                   <span className="num font-semibold">1</span>
                   <span className="opacity-70">read remaining</span>
                 </p>

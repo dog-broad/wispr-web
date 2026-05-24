@@ -5,7 +5,7 @@ import { PixelBadge } from "@/components/pixel/PixelBadge";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { WispMascot, type WispState } from "@/components/pixel/WispMascot";
-import { CheckIcon, CopyIcon, SparkleIcon } from "@/components/pixel/icons";
+import { PixelIcon } from "@/components/pixel/PixelIcon";
 
 // ----- Shared shell ---------------------------------------------------
 
@@ -31,6 +31,9 @@ function Shell({ accent, mascot, badge, heading, subhead, body, actions }: Shell
             <PixelBadge tone={accent === "pink" ? "error" : accent === "marigold" ? "warn" : "success"}>
               {badge}
             </PixelBadge>
+            <span className="ml-auto md:hidden">
+              <WispMascot state={mascot} size={2} />
+            </span>
           </div>
 
           <h1 className="font-[var(--font-display)] text-[28px] leading-[1.05] tracking-tight md:text-[36px]">
@@ -61,7 +64,7 @@ export function DecryptingCard() {
       mascot="idle"
       badge={
         <>
-          <SparkleIcon size={12} />
+          <PixelIcon name="zap" size={12} />
           working
         </>
       }
@@ -91,7 +94,7 @@ export function OkCard({ text }: { text: string }) {
       mascot="success"
       badge={
         <>
-          <CheckIcon size={12} />
+          <PixelIcon name="check" size={12} />
           decrypted
         </>
       }
@@ -109,7 +112,7 @@ export function OkCard({ text }: { text: string }) {
             <PixelButton
               variant="primary"
               size="md"
-              leading={<CopyIcon size={16} />}
+              leading={<PixelIcon name="copy" size={16} />}
               onClick={copy}
             >
               {copied ? "Copied" : "Copy"}
