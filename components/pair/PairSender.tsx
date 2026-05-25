@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ConnectBanner, type ConnectBannerState } from "@/components/pair/ConnectBanner";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
@@ -138,7 +139,7 @@ export function PairSender() {
 
       <PixelCard variant="lifted" accent="marigold">
         <div className="flex flex-col items-center gap-6 py-2 md:py-4">
-          <ConnectBanner session={session} />
+          <ConnectBanner state={bannerFromSession(session)} />
           <PinDisplay issue={issue} muted={session.kind === "connected"} />
           <Countdown issue={issue} />
           <Action issue={issue} onNewPin={newPin} />
@@ -149,28 +150,10 @@ export function PairSender() {
   );
 }
 
-function ConnectBanner({ session }: { session: SessionState }) {
-  if (session.kind === "connected") {
-    return (
-      <div className="flex w-full items-center gap-3 border-[2px] border-[var(--color-moss)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-body)] text-[14px]">
-        <span className="inline-block h-3 w-3 bg-[var(--color-moss)]" aria-hidden />
-        <span>Connected</span>
-        <span className="ml-auto text-[12px] opacity-60">
-          SAS landing in next ship
-        </span>
-      </div>
-    );
-  }
-  if (session.kind === "failed") {
-    return (
-      <div className="flex w-full items-center gap-3 border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-body)] text-[14px]">
-        <span className="inline-block h-3 w-3 bg-[var(--color-pink)]" aria-hidden />
-        <span className="font-semibold">Pair failed</span>
-        <span className="num ml-auto opacity-80">{session.reason}</span>
-      </div>
-    );
-  }
-  return null;
+function bannerFromSession(session: SessionState): ConnectBannerState {
+  if (session.kind === "connected") return { kind: "connected", sas: session.sas };
+  if (session.kind === "failed") return { kind: "failed", reason: session.reason };
+  return { kind: "idle" };
 }
 
 function PinDisplay({ issue, muted }: { issue: IssueState; muted: boolean }) {
