@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import dynamic from "next/dynamic";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
@@ -14,7 +15,15 @@ import {
   packEnvelope,
 } from "@/lib/crypto/encoding";
 import { env } from "@/lib/env";
-import { SentState, type SentDetails } from "./SentState";
+import type { SentDetails } from "./SentState";
+
+// SentState carries the QR renderer (qrcode.react) which is only needed
+// after a successful send. Lazy-loading it keeps that dependency out of
+// the initial home-page bundle so the first paint is light.
+const SentState = dynamic(
+  () => import("./SentState").then((m) => ({ default: m.SentState })),
+  { loading: () => null, ssr: false },
+);
 
 type Status =
   | { kind: "idle" }
