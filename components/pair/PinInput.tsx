@@ -35,12 +35,10 @@ export function PinInput({
   ariaLabel = "PIN",
 }: PinInputProps) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
-
-  // Keep the ref array sized to ``length`` so we don't drag stale
-  // entries when the parent shrinks the PIN.
-  if (refs.current.length !== length) {
-    refs.current = Array.from({ length }, (_, i) => refs.current[i] ?? null);
-  }
+  // The ref-callback below repopulates ``refs.current`` per render, so
+  // we don't need to pre-size the array — entries beyond ``length``
+  // simply become unreferenced. (Mutating refs during render is a
+  // react-hooks/refs error on the Vercel lint pass.)
 
   // Auto-focus the first empty slot when the component mounts. Disabled
   // overrides this — the resolving state shouldn't steal focus from
