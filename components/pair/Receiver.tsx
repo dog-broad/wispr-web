@@ -110,16 +110,17 @@ export function Receiver({ initialPin }: ReceiverProps) {
         <div className="flex flex-col gap-4 py-2 md:py-4">
           <ConnectBanner state={bannerFromPhase(phase)} />
 
-          {phase.kind === "connected" ? (
+          {showExchangeSurface(phase) ? (
             <>
               <ExchangeLog
                 messages={exchange.transcript}
                 onSend={exchange.sendText}
                 onAttach={exchange.sendFile}
+                disabled={phase.kind !== "connected"}
               />
               <div className="flex justify-center">
                 <PixelButton
-                  variant="outline"
+                  variant={phase.kind === "connected" ? "outline" : "primary"}
                   size="sm"
                   leading={<PixelIcon name="reload" size={14} />}
                   onClick={reset}
@@ -169,6 +170,16 @@ function bannerFromPhase(phase: Phase): ConnectBannerState {
   if (phase.kind === "connected") return { kind: "connected", sas: phase.sas };
   if (phase.kind === "failed") return { kind: "failed", failure: phase.failure };
   return { kind: "idle" };
+}
+
+// True iff the page should show the conversation surface rather than
+// the PIN-entry surface. A post-connection failure keeps the exchange
+// log visible per §7.6.7 #20 ("session ends; exchange log preserved
+// in the tab"); the compose box itself is disabled below.
+function showExchangeSurface(phase: Phase): boolean {
+  if (phase.kind === "connected") return true;
+  if (phase.kind === "failed" && phase.failure.postConnection) return true;
+  return false;
 }
 
 function StatusLine({ phase }: { phase: Phase }) {
