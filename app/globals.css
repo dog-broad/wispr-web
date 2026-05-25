@@ -187,14 +187,11 @@ time {
   66%, 100% { transform: translate(-1px, 1px); }
 }
 
-@keyframes wisp-plane {
-  0%, 49% { transform: translate(0, 0); }
-  50%, 100% { transform: translate(1px, -1px); }
-}
-
-@keyframes wisp-thrust {
-  0%, 49% { opacity: 0.3; transform: translateX(0); }
-  50%, 100% { opacity: 1; transform: translateX(-1px); }
+@keyframes wisp-stream {
+  /* One stream bar visible for ~1/3 of the cycle. Three bars carry the
+     same keyframe with offset delays so the trail sweeps outward. */
+  0%, 32% { opacity: 1; }
+  33%, 100% { opacity: 0; }
 }
 
 @keyframes wisp-link {
@@ -278,13 +275,13 @@ time {
   animation: wisp-sparkle-drift 5s steps(1) infinite;
 }
 
-.anim-wisp-plane {
-  animation: wisp-plane 600ms steps(1) infinite;
+.anim-wisp-stream-1,
+.anim-wisp-stream-2,
+.anim-wisp-stream-3 {
+  animation: wisp-stream 900ms steps(1) infinite;
 }
-
-.anim-wisp-thrust {
-  animation: wisp-thrust 600ms steps(1) infinite;
-}
+.anim-wisp-stream-2 { animation-delay: 300ms; }
+.anim-wisp-stream-3 { animation-delay: 600ms; }
 
 .anim-wisp-link {
   animation: wisp-link 800ms steps(1) infinite;
@@ -336,8 +333,9 @@ time {
   .anim-wisp-bob,
   .anim-wisp-blink,
   .anim-wisp-sparkle,
-  .anim-wisp-plane,
-  .anim-wisp-thrust,
+  .anim-wisp-stream-1,
+  .anim-wisp-stream-2,
+  .anim-wisp-stream-3,
   .anim-wisp-link,
   .anim-wisp-pin rect,
   .anim-wisp-pair-1,
