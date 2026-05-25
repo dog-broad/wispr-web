@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { WispMascot, type WispState } from "@/components/pixel/WispMascot";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
+import { tokenize, type Language, type TokenKind } from "@/lib/highlight/highlight";
 
 // ----- Shared shell ---------------------------------------------------
 
@@ -76,7 +77,7 @@ export function DecryptingCard() {
 
 // ----- OK (decrypted content) ----------------------------------------
 
-export function OkCard({ text }: { text: string }) {
+export function OkCard({ text, lang }: { text: string; lang: Language | null }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -95,14 +96,14 @@ export function OkCard({ text }: { text: string }) {
       badge={
         <>
           <PixelIcon name="check" size={12} />
-          decrypted
+          {lang === null ? "decrypted" : `decrypted · ${lang}`}
         </>
       }
       heading="Something for you."
       body={
         <div className="border-[3px] border-[var(--border)] bg-[var(--bg-sunk)] p-4">
           <pre className="whitespace-pre-wrap break-words font-[var(--font-mono)] text-[16px] leading-[1.5]">
-            {text}
+            {lang === null ? text : <HighlightedCode lang={lang} text={text} />}
           </pre>
         </div>
       }
@@ -124,6 +125,34 @@ export function OkCard({ text }: { text: string }) {
         </div>
       }
     />
+  );
+}
+
+// Color classes for the three highlighted token kinds, per the
+// project's aesthetic rules (purple keywords, marigold strings, moss
+// comments). Plain tokens inherit the surrounding text color.
+const TOKEN_CLASSES: Record<TokenKind, string> = {
+  keyword: "text-[var(--color-purple)]",
+  string: "text-[var(--color-marigold)]",
+  comment: "text-[var(--color-moss)] italic",
+  plain: "",
+};
+
+function HighlightedCode({ lang, text }: { lang: Language; text: string }) {
+  const tokens = tokenize(lang, text);
+  return (
+    <>
+      {tokens.map((token, idx) => {
+        if (token.kind === "plain") {
+          return <Fragment key={idx}>{token.text}</Fragment>;
+        }
+        return (
+          <span key={idx} className={TOKEN_CLASSES[token.kind]}>
+            {token.text}
+          </span>
+        );
+      })}
+    </>
   );
 }
 

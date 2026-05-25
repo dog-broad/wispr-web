@@ -15,6 +15,8 @@ import {
   packEnvelope,
 } from "@/lib/crypto/encoding";
 import { env } from "@/lib/env";
+import { detectLanguage } from "@/lib/highlight/detect";
+import type { Language } from "@/lib/highlight/highlight";
 import type { SentDetails } from "./SentState";
 
 // SentState carries the QR renderer (qrcode.react) which is only needed
@@ -38,12 +40,28 @@ const LIFETIME_OPTIONS = [
   { value: 86400, label: "24 hr" },
 ] as const;
 
-const METADATA_PLAINTEXT = new TextEncoder().encode(JSON.stringify({ v: 1 }));
+// Encrypted metadata is opaque to the server. The schema is just a
+// version tag plus optional fields the receiver uses to render — the
+// "lang" hint is what drives syntax highlighting on /s/{id}.
+interface MetadataPayload {
+  v: 1;
+  lang?: Language;
+}
+
+function encodeMetadata(meta: MetadataPayload): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(meta));
+}
 
 export function Composer() {
   const [text, setText] = useState("");
   const [ttlSeconds, setTtlSeconds] = useState<number>(600);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+
+  // Recompute the language guess on every keystroke. The detector is a
+  // cheap regex scan and the textarea is capped at ~64 KiB; running on
+  // every change avoids the staleness a debounced detector would have
+  // when the user hits Cmd+Enter immediately after pasting.
+  const detectedLanguage = detectLanguage(text);
 
   const send = useCallback(async () => {
     if (!text.trim()) return;
@@ -54,12 +72,16 @@ export function Composer() {
       const key = await crypto.generateKey();
       const contentBytes = new TextEncoder().encode(text);
 
+      const lang = detectLanguage(text);
       const content = await crypto.encrypt(key, contentBytes);
-      const meta = await crypto.encrypt(key, METADATA_PLAINTEXT);
+      const meta = await crypto.encrypt(
+        key,
+        encodeMetadata(lang === null ? { v: 1 } : { v: 1, lang }),
+      );
 
       const body = {
         share_mode: "link",
-        content_type: "text",
+        content_type: lang === null ? "text" : "code",
         ciphertext: base64Encode(packEnvelope(content.iv, content.ciphertext)),
         encrypted_metadata: base64Encode(packEnvelope(meta.iv, meta.ciphertext)),
         ttl_seconds: ttlSeconds,
@@ -162,6 +184,14 @@ Encrypted in your browser before it leaves."
               disabled
               title="Optional password gate ships with the next release"
             />
+            {detectedLanguage !== null && (
+              <PixelPill
+                icon={<PixelIcon name="code" size={12} />}
+                label="code"
+                value={detectedLanguage}
+                title="Code detected — receiver will see syntax highlighting"
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

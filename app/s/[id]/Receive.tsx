@@ -7,6 +7,7 @@ import {
   unpackEnvelope,
 } from "@/lib/crypto/encoding";
 import { env } from "@/lib/env";
+import type { Language } from "@/lib/highlight/highlight";
 import {
   DecryptingCard,
   GoneCard,
@@ -23,7 +24,7 @@ type ReceiveState =
   | { kind: "missing-key" }
   | { kind: "fetching" }
   | { kind: "decrypting" }
-  | { kind: "ok"; text: string }
+  | { kind: "ok"; text: string; lang: Language | null }
   | { kind: "gone"; reason: "expired" | "burned" | "taken_down" }
   | { kind: "not-found" }
   | { kind: "wrong-key" }
@@ -37,6 +38,23 @@ type FetchBody = {
   ciphertext: string;
   encrypted_metadata: string;
 };
+
+// Same shape as the sender's MetadataPayload. The receiver only reads
+// the lang hint here; future fields (filename for inline file
+// snippets, etc.) follow the same versioned envelope.
+interface MetadataPayload {
+  v?: number;
+  lang?: Language;
+}
+
+const KNOWN_LANGS: readonly Language[] = [
+  "javascript",
+  "typescript",
+  "python",
+  "json",
+  "bash",
+  "sql",
+];
 
 type GoneBody = {
   status: "gone";
@@ -111,7 +129,34 @@ export function Receive({ snippetId }: { snippetId: string }) {
       const { iv, ciphertext } = unpackEnvelope(envelope);
       const plaintextBytes = await crypto.decrypt(key, ciphertext, iv);
       const text = new TextDecoder().decode(plaintextBytes);
-      setState({ kind: "ok", text });
+
+      // Decrypt the metadata too so we can pick up the lang hint. A
+      // failure here drops back to plain rendering — the content is
+      // recoverable even without the metadata, so a partial decrypt
+      // shouldn't surface as a hard error.
+      let lang: Language | null = null;
+      if (body.content_type === "code" && typeof body.encrypted_metadata === "string") {
+        try {
+          const metaEnvelope = base64Decode(body.encrypted_metadata);
+          const metaUnpacked = unpackEnvelope(metaEnvelope);
+          const metaBytes = await crypto.decrypt(
+            key,
+            metaUnpacked.ciphertext,
+            metaUnpacked.iv,
+          );
+          const meta = JSON.parse(new TextDecoder().decode(metaBytes)) as MetadataPayload;
+          if (
+            typeof meta.lang === "string" &&
+            (KNOWN_LANGS as readonly string[]).includes(meta.lang)
+          ) {
+            lang = meta.lang;
+          }
+        } catch {
+          /* metadata decrypt or parse failed — render unhighlighted */
+        }
+      }
+
+      setState({ kind: "ok", text, lang });
     } catch {
       // Any failure on the decrypt path — bad key, tampered ciphertext,
       // malformed envelope — surfaces as wrong-key to the user. The
@@ -136,7 +181,7 @@ export function Receive({ snippetId }: { snippetId: string }) {
     case "wrong-key":
       return <WrongKeyCard />;
     case "ok":
-      return <OkCard text={state.text} />;
+      return <OkCard text={state.text} lang={state.lang} />;
     case "gone":
       return <GoneCard reason={state.reason} />;
     case "not-found":
