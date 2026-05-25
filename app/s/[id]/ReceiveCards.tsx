@@ -392,6 +392,82 @@ function UrlPreviewBlock({
   );
 }
 
+// ----- Password gate (snippet is password-protected) ----------------
+
+export function PasswordPromptCard({
+  wrongAttempts,
+  rateLimited,
+  verifying,
+  onSubmit,
+}: {
+  wrongAttempts: number;
+  rateLimited: boolean;
+  verifying: boolean;
+  onSubmit: (password: string) => void | Promise<void>;
+}) {
+  const [password, setPassword] = useState("");
+  const disabled = rateLimited || verifying;
+
+  return (
+    <Shell
+      accent="purple"
+      mascot="linking"
+      badge={
+        <>
+          <PixelIcon name="lock" size={12} />
+          password
+        </>
+      }
+      heading="Password required."
+      subhead="The sender put an extra gate on this share. Type the password they gave you out-of-band."
+      body={
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (disabled || password.length === 0) return;
+            void onSubmit(password);
+          }}
+          className="flex flex-col gap-3"
+        >
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="password"
+            autoFocus
+            disabled={disabled}
+            className="border-[3px] border-[var(--border)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-mono)] text-[18px] focus:outline-none focus:border-[var(--color-pink)]"
+            aria-label="Snippet password"
+          />
+          <PixelButton
+            type="submit"
+            variant="primary"
+            size="md"
+            leading={<PixelIcon name="lock" size={16} />}
+            disabled={disabled || password.length === 0}
+          >
+            {verifying ? "Verifying…" : "Unlock"}
+          </PixelButton>
+          {rateLimited && (
+            <p className="font-[var(--font-body)] text-[14px] text-[var(--color-pink)]">
+              Too many tries. Wait a minute and refresh the page.
+            </p>
+          )}
+          {!rateLimited && wrongAttempts > 0 && (
+            <p className="num font-[var(--font-mono)] text-[14px] text-[var(--color-pink)]">
+              wrong password ({wrongAttempts} {wrongAttempts === 1 ? "try" : "tries"})
+            </p>
+          )}
+          <p className="font-[var(--font-body)] text-[12px] opacity-70">
+            Access-control only. The actual decryption key still lives in the
+            URL fragment.
+          </p>
+        </form>
+      }
+    />
+  );
+}
+
 // ----- Missing-key (no #k= fragment) ---------------------------------
 
 export function MissingKeyCard() {

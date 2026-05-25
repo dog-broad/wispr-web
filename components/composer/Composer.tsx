@@ -15,6 +15,7 @@ import {
   base64urlEncode,
   packEnvelope,
 } from "@/lib/crypto/encoding";
+import { derivePasswordHash, generatePasswordSalt } from "@/lib/crypto/password";
 import { env } from "@/lib/env";
 import { detectLanguage } from "@/lib/highlight/detect";
 import type { Language } from "@/lib/highlight/highlight";
@@ -68,6 +69,8 @@ export function Composer() {
   const [attachError, setAttachError] = useState<string | null>(null);
   const [ttlSeconds, setTtlSeconds] = useState<number>(600);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [passwordEnabled, setPasswordEnabled] = useState(false);
+  const [password, setPassword] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Content-type detection runs on every keystroke. URL takes priority
@@ -112,7 +115,18 @@ export function Composer() {
       const content = await crypto.encrypt(key, contentBytes);
       const meta = await crypto.encrypt(key, encodeMetadata(metadata));
 
-      const body = {
+      // Compute the optional password gate (client-side PBKDF2 — see
+      // [D-260526-01]). The raw password never reaches the server.
+      let passwordHash: string | undefined;
+      let passwordSalt: string | undefined;
+      if (passwordEnabled && password.length > 0) {
+        const salt = generatePasswordSalt();
+        const hash = await derivePasswordHash(password, salt);
+        passwordHash = base64Encode(hash);
+        passwordSalt = base64Encode(salt);
+      }
+
+      const body: Record<string, unknown> = {
         share_mode: "link",
         content_type: contentType,
         ciphertext: base64Encode(packEnvelope(content.iv, content.ciphertext)),
@@ -120,6 +134,10 @@ export function Composer() {
         ttl_seconds: ttlSeconds,
         max_reads: 1,
       };
+      if (passwordHash !== undefined && passwordSalt !== undefined) {
+        body.password_hash = passwordHash;
+        body.password_salt = passwordSalt;
+      }
 
       setStatus({ kind: "posting" });
       const response = await fetch(`${env.apiBaseUrl}/snippets`, {
@@ -155,13 +173,15 @@ export function Composer() {
       const reason = err instanceof Error ? err.message : String(err);
       setStatus({ kind: "failed", reason });
     }
-  }, [attachedFile, text, ttlSeconds]);
+  }, [attachedFile, password, passwordEnabled, text, ttlSeconds]);
 
   function reset() {
     setText("");
     setAttachedFile(null);
     setAttachError(null);
     setTtlSeconds(600);
+    setPasswordEnabled(false);
+    setPassword("");
     setStatus({ kind: "idle" });
   }
 
@@ -198,7 +218,10 @@ export function Composer() {
   }
 
   const busy = status.kind === "encrypting" || status.kind === "posting";
-  const sendDisabled = busy || (attachedFile === null && !text.trim());
+  const sendDisabled =
+    busy ||
+    (attachedFile === null && !text.trim()) ||
+    (passwordEnabled && password.length === 0);
   const primaryLabel = busy
     ? status.kind === "encrypting"
       ? "Encrypting…"
@@ -239,6 +262,14 @@ Encrypted in your browser before it leaves."
             </p>
           )}
 
+          {passwordEnabled && (
+            <PasswordRow
+              value={password}
+              onChange={setPassword}
+              disabled={busy}
+            />
+          )}
+
           <div className="flex flex-wrap gap-2">
             <PixelSelectPill
               icon={<PixelIcon name="clock" size={12} />}
@@ -254,13 +285,26 @@ Encrypted in your browser before it leaves."
               disabled
               title="Link burns after one read; multi-read PINs ship later"
             />
-            <PixelPill
-              icon={<PixelIcon name="lock" size={12} />}
-              label="password"
-              value="off"
-              disabled
-              title="Optional password gate ships with the next release"
-            />
+            <button
+              type="button"
+              onClick={() => {
+                setPasswordEnabled((current) => {
+                  const next = !current;
+                  if (!next) setPassword("");
+                  return next;
+                });
+              }}
+              disabled={busy}
+              className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 font-[var(--font-display)] text-[12px] tracking-widest uppercase text-[var(--fg)] shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
+              aria-pressed={passwordEnabled}
+              title="Optional password gate on top of the URL key"
+            >
+              <PixelIcon name="lock" size={12} />
+              password
+              <span className="num opacity-70">
+                {passwordEnabled ? "on" : "off"}
+              </span>
+            </button>
             {detectedUrl !== null && (
               <PixelPill
                 icon={<PixelIcon name="link" size={12} />}
@@ -348,6 +392,37 @@ Encrypted in your browser before it leaves."
         </div>
       </PixelCard>
     </section>
+  );
+}
+
+function PasswordRow({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1 border-[2px] border-[var(--color-purple)] bg-[var(--bg-sunk)] px-3 py-2">
+      <label className="font-[var(--font-display)] text-[12px] tracking-widest uppercase opacity-80">
+        password gate
+      </label>
+      <input
+        type="password"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        placeholder="receiver types this to unlock"
+        className="border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-3 py-2 font-[var(--font-mono)] text-[16px] focus:outline-none focus:border-[var(--color-pink)]"
+        aria-label="Snippet password"
+      />
+      <p className="font-[var(--font-body)] text-[12px] opacity-70">
+        Access-control only — the URL key still decrypts the content. Use a
+        secret phrase you can share out-of-band.
+      </p>
+    </div>
   );
 }
 
