@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectBanner, type ConnectBannerState } from "@/components/pair/ConnectBanner";
+import { ExchangeLog } from "@/components/pair/ExchangeLog";
+import { usePairExchange } from "@/components/pair/usePairExchange";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
@@ -33,6 +35,7 @@ export function PairSender() {
   const [session, setSession] = useState<SessionState>({ kind: "idle" });
   const tickRef = useRef<number | null>(null);
   const sessionRef = useRef<PairSession | null>(null);
+  const exchange = usePairExchange();
 
   const issuePair = useCallback(async (controller: AbortController) => {
     setIssue({ kind: "loading" });
@@ -106,8 +109,9 @@ export function PairSender() {
             return { kind: "connecting", phase };
           });
         },
-        onConnected: ({ sas }) => {
+        onConnected: ({ sas, sessionKey }) => {
           setSession({ kind: "connected", sas });
+          exchange.attach(s, sessionKey);
         },
         onFailed: (failure) => {
           setSession({ kind: "failed", failure });
@@ -116,17 +120,19 @@ export function PairSender() {
     );
     sessionRef.current = s;
     return () => {
+      exchange.detach();
       s.close("issue_changed");
       sessionRef.current = null;
     };
-  }, [issue]);
+  }, [issue, exchange]);
 
   const newPin = useCallback(() => {
     sessionRef.current?.close("new_pin_requested");
     setSession({ kind: "idle" });
+    exchange.resetTranscript();
     const controller = new AbortController();
     void issuePair(controller);
-  }, [issuePair]);
+  }, [issuePair, exchange]);
 
   return (
     <section className="relative">
@@ -138,12 +144,31 @@ export function PairSender() {
       </div>
 
       <PixelCard variant="lifted" accent="marigold">
-        <div className="flex flex-col items-center gap-6 py-2 md:py-4">
+        <div className="flex flex-col gap-4 py-2 md:py-4">
           <ConnectBanner state={bannerFromSession(session)} />
-          <PinDisplay issue={issue} muted={session.kind === "connected"} />
-          <Countdown issue={issue} />
-          <Action issue={issue} onNewPin={newPin} />
-          <Helper issue={issue} session={session} />
+
+          {session.kind === "connected" ? (
+            <>
+              <ExchangeLog messages={exchange.transcript} onSend={exchange.sendText} />
+              <div className="flex justify-center">
+                <PixelButton
+                  variant="outline"
+                  size="sm"
+                  leading={<PixelIcon name="reload" size={14} />}
+                  onClick={newPin}
+                >
+                  start a new pair
+                </PixelButton>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-6">
+              <PinDisplay issue={issue} muted={false} />
+              <Countdown issue={issue} />
+              <Action issue={issue} onNewPin={newPin} />
+              <Helper issue={issue} session={session} />
+            </div>
+          )}
         </div>
       </PixelCard>
     </section>

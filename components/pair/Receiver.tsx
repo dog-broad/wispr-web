@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectBanner, type ConnectBannerState } from "@/components/pair/ConnectBanner";
+import { ExchangeLog } from "@/components/pair/ExchangeLog";
+import { usePairExchange } from "@/components/pair/usePairExchange";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
@@ -31,29 +33,36 @@ export function Receiver({ initialPin }: ReceiverProps) {
   );
   const [phase, setPhase] = useState<Phase>({ kind: "entering" });
   const sessionRef = useRef<PairSession | null>(null);
+  const exchange = usePairExchange();
 
-  const startSession = useCallback((completed: string) => {
-    setPhase({ kind: "connecting", pin: completed, sessionPhase: "opening_signaling" });
-    sessionRef.current?.close("retrying");
-    sessionRef.current = PairSession.createReceiver(
-      env.apiBaseUrl,
-      { pin: completed },
-      {
-        onPhase: (sessionPhase) => {
-          setPhase((current) => {
-            if (current.kind !== "connecting") return current;
-            return { ...current, sessionPhase };
-          });
+  const startSession = useCallback(
+    (completed: string) => {
+      setPhase({ kind: "connecting", pin: completed, sessionPhase: "opening_signaling" });
+      sessionRef.current?.close("retrying");
+      exchange.detach();
+      const session = PairSession.createReceiver(
+        env.apiBaseUrl,
+        { pin: completed },
+        {
+          onPhase: (sessionPhase) => {
+            setPhase((current) => {
+              if (current.kind !== "connecting") return current;
+              return { ...current, sessionPhase };
+            });
+          },
+          onConnected: ({ sas, sessionKey }) => {
+            setPhase({ kind: "connected", pin: completed, sas });
+            exchange.attach(session, sessionKey);
+          },
+          onFailed: (failure) => {
+            setPhase({ kind: "failed", pin: completed, failure });
+          },
         },
-        onConnected: ({ sas }) => {
-          setPhase({ kind: "connected", pin: completed, sas });
-        },
-        onFailed: (failure) => {
-          setPhase({ kind: "failed", pin: completed, failure });
-        },
-      },
-    );
-  }, []);
+      );
+      sessionRef.current = session;
+    },
+    [exchange],
+  );
 
   // If the URL arrived already-filled, kick the session immediately so
   // the receiver feels instant.
@@ -66,10 +75,11 @@ export function Receiver({ initialPin }: ReceiverProps) {
   // Tear down the session if the component unmounts.
   useEffect(() => {
     return () => {
+      exchange.detach();
       sessionRef.current?.close("unmounted");
       sessionRef.current = null;
     };
-  }, []);
+  }, [exchange]);
 
   const onComplete = useCallback(
     (completed: string) => {
@@ -81,9 +91,11 @@ export function Receiver({ initialPin }: ReceiverProps) {
   const reset = useCallback(() => {
     sessionRef.current?.close("reset");
     sessionRef.current = null;
+    exchange.detach();
+    exchange.resetTranscript();
     setPin(emptyPin(PIN_LENGTH));
     setPhase({ kind: "entering" });
-  }, []);
+  }, [exchange]);
 
   return (
     <section className="relative">
@@ -95,34 +107,53 @@ export function Receiver({ initialPin }: ReceiverProps) {
       </div>
 
       <PixelCard variant="lifted" accent="marigold">
-        <div className="flex flex-col items-center gap-6 py-2 md:py-4">
+        <div className="flex flex-col gap-4 py-2 md:py-4">
           <ConnectBanner state={bannerFromPhase(phase)} />
-          <p className="font-[var(--font-body)] text-[14px] uppercase tracking-widest opacity-70">
-            enter the 4-digit PIN
-          </p>
 
-          <PinInput
-            value={pin}
-            onChange={setPin}
-            onComplete={onComplete}
-            length={PIN_LENGTH}
-            disabled={phase.kind !== "entering"}
-            ariaLabel="Pair PIN"
-          />
+          {phase.kind === "connected" ? (
+            <>
+              <ExchangeLog messages={exchange.transcript} onSend={exchange.sendText} />
+              <div className="flex justify-center">
+                <PixelButton
+                  variant="outline"
+                  size="sm"
+                  leading={<PixelIcon name="reload" size={14} />}
+                  onClick={reset}
+                >
+                  start over
+                </PixelButton>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-6">
+              <p className="font-[var(--font-body)] text-[14px] uppercase tracking-widest opacity-70">
+                enter the 4-digit PIN
+              </p>
 
-          <StatusLine phase={phase} />
+              <PinInput
+                value={pin}
+                onChange={setPin}
+                onComplete={onComplete}
+                length={PIN_LENGTH}
+                disabled={phase.kind !== "entering"}
+                ariaLabel="Pair PIN"
+              />
 
-          <ScanQrAffordance />
+              <StatusLine phase={phase} />
 
-          {phase.kind !== "entering" && (
-            <PixelButton
-              variant="outline"
-              size="sm"
-              leading={<PixelIcon name="reload" size={14} />}
-              onClick={reset}
-            >
-              start over
-            </PixelButton>
+              <ScanQrAffordance />
+
+              {phase.kind !== "entering" && (
+                <PixelButton
+                  variant="outline"
+                  size="sm"
+                  leading={<PixelIcon name="reload" size={14} />}
+                  onClick={reset}
+                >
+                  start over
+                </PixelButton>
+              )}
+            </div>
           )}
         </div>
       </PixelCard>
@@ -137,6 +168,8 @@ function bannerFromPhase(phase: Phase): ConnectBannerState {
 }
 
 function StatusLine({ phase }: { phase: Phase }) {
+  // Connected is rendered above the StatusLine in the parent, so we
+  // only handle entering / connecting / failed here.
   if (phase.kind === "entering") {
     return (
       <p className="text-center font-[var(--font-body)] text-[14px] opacity-70">
@@ -151,13 +184,6 @@ function StatusLine({ phase }: { phase: Phase }) {
         <span className="opacity-70">{label}</span>{" "}
         <span className="num font-[var(--font-mono)]">{phase.pin}</span>
         <span className="opacity-70">…</span>
-      </p>
-    );
-  }
-  if (phase.kind === "connected") {
-    return (
-      <p className="text-center font-[var(--font-body)] text-[14px] opacity-80">
-        Channel is live — content runs peer-to-peer from here.
       </p>
     );
   }
