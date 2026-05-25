@@ -39,6 +39,18 @@ export type PairPhase =
   | "connected"
   | "closed";
 
+/** Structured failure carried to ``onFailed`` so the UI can branch on
+ *  reason (PROJECT.md §7.6.7) and surface the retry countdown the
+ *  server suggests for rate-limit cases. ``postConnection`` is true if
+ *  the failure happened after ``onConnected`` already fired — used to
+ *  distinguish §7.6.7 #20 (peer disconnect mid-session) from #9/#10/#11
+ *  (couldn't establish at all). */
+export interface PairFailure {
+  reason: string;
+  retryAfterSeconds?: number;
+  postConnection: boolean;
+}
+
 export interface PairSessionEvents {
   /** Fires on every phase transition so the page can mirror state. */
   onPhase?: (phase: PairPhase) => void;
@@ -48,11 +60,19 @@ export interface PairSessionEvents {
   /** Inbound application data over the encrypted channel. (Decryption
    *  isn't done here yet — the next task layers AES-GCM on top.) */
   onMessage?: (data: ArrayBuffer | string) => void;
-  /** Pair was refused by the server (PIN expired, sender offline,
-   *  rate-limited, etc.) or torn down mid-session. ``reason`` matches
-   *  the wire ``pair_failed.reason`` string when applicable. */
-  onFailed?: (reason: string) => void;
+  /** Pair was refused by the server, never established, or torn down
+   *  mid-session. ``reason`` matches the wire ``pair_failed.reason``
+   *  for server-originated failures and is one of the synthesized
+   *  reasons (``signaling_closed``, ``rtc_failed``, ``peer_disconnected``,
+   *  ``negotiation_timeout``) otherwise. */
+  onFailed?: (failure: PairFailure) => void;
 }
+
+// Upper bound on the negotiating phase. ICE typically converges within
+// a few seconds on healthy networks; 15s is enough for slow mobile
+// links without leaving a user staring at "connecting…" forever when
+// ICE actually gave up but didn't signal "failed".
+const NEGOTIATION_TIMEOUT_MS = 15_000;
 
 const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   // Public STUN reflexive-address discovery. TURN relays would extend
@@ -76,6 +96,12 @@ export class PairSession {
   // applied (the signaling order isn't strictly synchronised with
   // offer/answer). Buffer them until ``setRemoteDescription`` lands.
   private pendingIce: RTCIceCandidateInit[] = [];
+  // Pending retry-after hint from the server's ``pair_failed.retry_after_seconds``.
+  // Forwarded into the next ``fail`` call so the UI can render a countdown.
+  private pendingRetryAfter: number | undefined;
+  // Negotiation watchdog — cleared when ``connected`` fires or the
+  // session closes; fires ``negotiation_timeout`` if neither happens.
+  private negotiationTimer: ReturnType<typeof setTimeout> | null = null;
 
   private constructor(
     role: "sender" | "receiver",
@@ -143,6 +169,7 @@ export class PairSession {
   close(reason: string = "user_closed"): void {
     if (this.closed) return;
     this.closed = true;
+    this.clearNegotiationTimer();
     this.transition("closed");
     try {
       this.dataChannel?.close();
@@ -174,6 +201,22 @@ export class PairSession {
       // candidate === null marks end-of-candidates; forward both so the
       // peer can finalize ICE gathering.
       this.sendSignal({ type: "ice", candidate: event.candidate?.toJSON() ?? null });
+    });
+
+    this.pc.addEventListener("iceconnectionstatechange", () => {
+      const state = this.pc.iceConnectionState;
+      // "failed" is terminal — the browser gave up on ICE. Surface as
+      // §7.6.7 #19 so the UI can suggest a different network.
+      if (state === "failed") {
+        this.fail("rtc_failed");
+      }
+      // "disconnected" is recoverable in principle (ICE may re-converge)
+      // but in practice for a 1:1 data channel it usually means the peer
+      // dropped. If we're already connected, surface it as
+      // peer_disconnected; if we never connected, fail loudly.
+      if (state === "disconnected" && this.phase === "connected") {
+        this.fail("peer_disconnected");
+      }
     });
 
     this.pc.addEventListener("datachannel", (event) => {
@@ -211,6 +254,8 @@ export class PairSession {
   private handleEnvelope(env: ServerEnvelope): void {
     switch (env.op) {
       case "pair_failed":
+        // Stash the retry-after so the next fail() picks it up.
+        this.pendingRetryAfter = env.retry_after_seconds;
         this.fail(env.reason);
         return;
       case "paired":
@@ -230,6 +275,7 @@ export class PairSession {
   private async startNegotiation(): Promise<void> {
     if (this.closed) return;
     this.transition("negotiating");
+    this.armNegotiationTimer();
     this.ownKeypair = await generateEphemeralKeypair();
     const publicKey = await exportPublicKey(this.ownKeypair.publicKey);
     this.sendSignal({ type: "ecdh", publicKey });
@@ -238,6 +284,23 @@ export class PairSession {
       const offer = await this.pc.createOffer();
       await this.pc.setLocalDescription(offer);
       this.sendSignal({ type: "sdp", sdp: offer });
+    }
+  }
+
+  private armNegotiationTimer(): void {
+    if (this.negotiationTimer !== null) return;
+    this.negotiationTimer = setTimeout(() => {
+      this.negotiationTimer = null;
+      if (this.phase === "negotiating") {
+        this.fail("negotiation_timeout");
+      }
+    }, NEGOTIATION_TIMEOUT_MS);
+  }
+
+  private clearNegotiationTimer(): void {
+    if (this.negotiationTimer !== null) {
+      clearTimeout(this.negotiationTimer);
+      this.negotiationTimer = null;
     }
   }
 
@@ -317,6 +380,7 @@ export class PairSession {
     if (this.phase === "connected") return;
     if (this.material === null) return;
     if (this.dataChannel === null || this.dataChannel.readyState !== "open") return;
+    this.clearNegotiationTimer();
     this.transition("connected");
     this.events.onConnected?.({
       sas: this.material.sas,
@@ -342,14 +406,15 @@ export class PairSession {
       // ``onClose`` again — swallow the recursive fail.
       return;
     }
-    if (this.phase === "connected") {
-      // Mid-session disconnect: still surface as a failure but with a
-      // distinct reason so the UI can render "peer disconnected" instead
-      // of "couldn't pair".
-      this.events.onFailed?.(reason);
-    } else {
-      this.events.onFailed?.(reason);
-    }
+    const failure: PairFailure = {
+      reason,
+      postConnection: this.phase === "connected",
+      ...(this.pendingRetryAfter !== undefined
+        ? { retryAfterSeconds: this.pendingRetryAfter }
+        : {}),
+    };
+    this.pendingRetryAfter = undefined;
+    this.events.onFailed?.(failure);
     this.close(reason);
   }
 }
