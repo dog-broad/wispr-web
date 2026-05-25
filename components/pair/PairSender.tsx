@@ -147,16 +147,17 @@ export function PairSender() {
         <div className="flex flex-col gap-4 py-2 md:py-4">
           <ConnectBanner state={bannerFromSession(session)} />
 
-          {session.kind === "connected" ? (
+          {showExchangeSurface(session) ? (
             <>
               <ExchangeLog
                 messages={exchange.transcript}
                 onSend={exchange.sendText}
                 onAttach={exchange.sendFile}
+                disabled={session.kind !== "connected"}
               />
               <div className="flex justify-center">
                 <PixelButton
-                  variant="outline"
+                  variant={session.kind === "connected" ? "outline" : "primary"}
                   size="sm"
                   leading={<PixelIcon name="reload" size={14} />}
                   onClick={newPin}
@@ -177,6 +178,16 @@ export function PairSender() {
       </PixelCard>
     </section>
   );
+}
+
+// True iff the page should show the conversation surface rather than
+// the PIN-and-countdown surface. A post-connection failure keeps the
+// exchange log visible per §7.6.7 #20 ("session ends; exchange log
+// preserved in the tab"); the compose box itself is disabled below.
+function showExchangeSurface(session: SessionState): boolean {
+  if (session.kind === "connected") return true;
+  if (session.kind === "failed" && session.failure.postConnection) return true;
+  return false;
 }
 
 function bannerFromSession(session: SessionState): ConnectBannerState {
