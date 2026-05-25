@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { deriveSessionMaterial, generateEphemeralKeypair } from "./crypto";
-import { decryptFrame, encryptText } from "./channel";
+import {
+  decodeChunkData,
+  decryptFrame,
+  encryptFileChunk,
+  encryptFileMeta,
+  encryptText,
+} from "./channel";
 
 async function pair(): Promise<{ aliceKey: CryptoKey; bobKey: CryptoKey }> {
   const alice = await generateEphemeralKeypair();
@@ -51,6 +57,54 @@ describe("pair/channel codec", () => {
     const eveMaterial = await deriveSessionMaterial(eve.privateKey, bob.publicKey);
     const wire = await encryptText(aliceKey, "private");
     expect(await decryptFrame(eveMaterial.sessionKey, wire)).toBeNull();
+  });
+
+  it("round-trips a file_meta frame", async () => {
+    const { aliceKey, bobKey } = await pair();
+    const wire = await encryptFileMeta(aliceKey, {
+      id: "f1",
+      name: "cat.png",
+      mime: "image/png",
+      size: 1234,
+    });
+    const decoded = await decryptFrame(bobKey, wire);
+    expect(decoded).toEqual({
+      type: "file_meta",
+      id: "f1",
+      name: "cat.png",
+      mime: "image/png",
+      size: 1234,
+    });
+  });
+
+  it("round-trips a file_chunk frame including the chunk bytes", async () => {
+    const { aliceKey, bobKey } = await pair();
+    const payload = new Uint8Array([0xde, 0xad, 0xbe, 0xef, 0x00, 0x42]);
+    const wire = await encryptFileChunk(aliceKey, "f1", 3, payload);
+    const decoded = await decryptFrame(bobKey, wire);
+    expect(decoded?.type).toBe("file_chunk");
+    if (decoded?.type !== "file_chunk") throw new Error("guard");
+    expect(decoded.id).toBe("f1");
+    expect(decoded.index).toBe(3);
+    expect(Array.from(decodeChunkData(decoded))).toEqual(Array.from(payload));
+  });
+
+  it("rejects file_meta with a negative size", async () => {
+    const { aliceKey, bobKey } = await pair();
+    // Hand-roll an invalid frame with a non-finite size; the parser
+    // should drop it instead of letting the receiver allocate a
+    // nonsense-sized buffer.
+    const plaintext = new TextEncoder().encode(
+      JSON.stringify({ type: "file_meta", id: "x", name: "a", mime: "b", size: -1 }),
+    );
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(
+      await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aliceKey, plaintext),
+    );
+    const wire = new Uint8Array(iv.byteLength + ct.byteLength);
+    wire.set(iv, 0);
+    wire.set(ct, iv.byteLength);
+    expect(await decryptFrame(bobKey, wire)).toBeNull();
   });
 
   it("returns null on unknown frame type", async () => {
