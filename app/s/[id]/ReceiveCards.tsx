@@ -1,12 +1,13 @@
 "use client";
 
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { WispMascot, type WispState } from "@/components/pixel/WispMascot";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { tokenize, type Language, type TokenKind } from "@/lib/highlight/highlight";
+import { fetchOgPreview, type OgPreview } from "@/lib/url-preview/og";
 
 // ----- Shared shell ---------------------------------------------------
 
@@ -153,6 +154,147 @@ function HighlightedCode({ lang, text }: { lang: Language; text: string }) {
         );
       })}
     </>
+  );
+}
+
+// ----- OK (decrypted URL) --------------------------------------------
+
+type UrlPreviewState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "ready"; preview: OgPreview }
+  | { kind: "unavailable" };
+
+export function UrlOkCard({ url }: { url: URL }) {
+  const [copied, setCopied] = useState(false);
+  const [preview, setPreview] = useState<UrlPreviewState>({ kind: "idle" });
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url.href);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setPreview({ kind: "loading" });
+    (async () => {
+      const result = await fetchOgPreview(url, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      if (result === null) {
+        setPreview({ kind: "unavailable" });
+      } else {
+        setPreview({ kind: "ready", preview: result });
+      }
+    })();
+    return () => controller.abort();
+  }, [url]);
+
+  return (
+    <Shell
+      accent="moss"
+      mascot="success"
+      badge={
+        <>
+          <PixelIcon name="link" size={12} />
+          decrypted · url
+        </>
+      }
+      heading="A link for you."
+      body={
+        <div className="flex flex-col gap-3">
+          <UrlPreviewBlock url={url} state={preview} />
+        </div>
+      }
+      actions={
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            <PixelButton
+              variant="primary"
+              size="md"
+              leading={<PixelIcon name="link" size={16} />}
+              onClick={() => window.open(url.href, "_blank", "noopener,noreferrer")}
+            >
+              Open link
+            </PixelButton>
+            <PixelButton
+              variant="ghost"
+              size="md"
+              leading={<PixelIcon name="copy" size={16} />}
+              onClick={copy}
+            >
+              {copied ? "Copied" : "Copy URL"}
+            </PixelButton>
+          </div>
+          <p className="font-[var(--font-body)] text-[14px] opacity-70">
+            Self-destructs when you leave this page.
+          </p>
+        </div>
+      }
+    />
+  );
+}
+
+function UrlPreviewBlock({
+  url,
+  state,
+}: {
+  url: URL;
+  state: UrlPreviewState;
+}) {
+  const ready = state.kind === "ready" ? state.preview : null;
+  return (
+    <div className="flex flex-col gap-3 border-[3px] border-[var(--border)] bg-[var(--bg-sunk)] p-4">
+      <div className="flex items-center gap-2 font-[var(--font-mono)] text-[14px]">
+        <PixelIcon name="link" size={14} />
+        <span className="num truncate" title={url.href}>
+          {url.hostname}
+        </span>
+      </div>
+
+      {ready?.title && (
+        <p className="font-[var(--font-display)] text-[18px] leading-[1.2]">
+          {ready.title}
+        </p>
+      )}
+
+      {ready?.description && (
+        <p className="font-[var(--font-body)] text-[14px] opacity-90">
+          {ready.description}
+        </p>
+      )}
+
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {ready?.image && (
+        <img
+          src={ready.image}
+          alt=""
+          className="pixel max-h-[240px] w-full border-[2px] border-[var(--border)] object-contain"
+          onError={(event) => {
+            // OG image hosts sometimes 404 or block hotlinking; drop
+            // the image element instead of letting a broken-img icon
+            // sit in the preview.
+            event.currentTarget.style.display = "none";
+          }}
+        />
+      )}
+
+      <p
+        className="font-[var(--font-mono)] text-[12px] opacity-60"
+        aria-live="polite"
+      >
+        {state.kind === "loading"
+          ? "fetching preview…"
+          : state.kind === "unavailable"
+            ? "no preview — site didn't allow a direct fetch."
+            : ready?.title || ready?.description || ready?.image
+              ? null
+              : "no preview — site didn't expose Open Graph metadata."}
+      </p>
+    </div>
   );
 }
 
