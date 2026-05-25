@@ -30,15 +30,18 @@ export interface WispMascotProps {
 type Row = readonly [y: number, x0: number, x1: number];
 
 const CREAM_ROWS: readonly Row[] = [
-  // dome — widens from 8 to 24 over 7 rows, +1 per row except row 1→2 (+2)
-  [1, 12, 19], // 8
-  [2, 10, 21], // 12 (+2 each side, needs shoulder extras)
-  [3, 9, 22], // 14
-  [4, 8, 23], // 16
-  [5, 7, 24], // 18
-  [6, 6, 25], // 20
-  [7, 5, 26], // 22
-  // body — 24 wide, flat-sided. No arm flare.
+  // Rounder dome — narrower top (6 wide) with three rows of +2 widening
+  // up front, then +1 to settle into max width. Front-loading the
+  // widening curve makes the dome bulge outward near the top instead of
+  // climbing diagonally like a triangle.
+  [1, 13, 18], // 6
+  [2, 11, 20], // 10 (+2)
+  [3, 9, 22], // 14 (+2)
+  [4, 7, 24], // 18 (+2)
+  [5, 6, 25], // 20 (+1)
+  [6, 5, 26], // 22 (+1)
+  [7, 4, 27], // 24 (+1)
+  // body — 24 wide, flat-sided
   [8, 4, 27],
   [9, 4, 27],
   [10, 4, 27],
@@ -55,34 +58,33 @@ const CREAM_ROWS: readonly Row[] = [
   [21, 4, 27],
   [22, 4, 27],
   [23, 4, 27],
-  // four scallop humps, 4 wide each
-  [24, 5, 8],
-  [24, 11, 14],
-  [24, 17, 20],
-  [24, 23, 26],
-  // droplet middles (2 wide)
-  [25, 6, 7],
-  [25, 12, 13],
-  [25, 18, 19],
-  [25, 24, 25],
-  // droplet tips (1 wide)
-  [26, 6, 6],
-  [26, 12, 12],
-  [26, 18, 18],
-  [26, 24, 24],
+  [24, 4, 27], // last full-width row
+  // Shallow 1-row scallop — four 4-wide humps with flat caps below.
+  // No droplet tips dangling beneath; the bottom edge reads as a gentle
+  // wave rather than four little feet.
+  [25, 5, 8],
+  [25, 11, 14],
+  [25, 17, 20],
+  [25, 23, 26],
 ];
 
 const NAVY_EXTRAS: readonly { x: number; y: number; w?: number }[] = [
-  // top navy cap above row-1 cream
-  { x: 12, y: 0, w: 8 },
-  // row 1 → row 2 widen +2 each side
-  { x: 10, y: 1 },
-  { x: 21, y: 1 },
-  // droplet bottom caps
-  { x: 5, y: 27, w: 3 },
-  { x: 11, y: 27, w: 3 },
-  { x: 17, y: 27, w: 3 },
-  { x: 23, y: 27, w: 3 },
+  // top cap matching the 6-wide y=1 cream
+  { x: 13, y: 0, w: 6 },
+  // dome widening bridges (the three +2 rows leave a 1-px diagonal gap
+  // per side that the row-outline rects can't close on their own)
+  { x: 11, y: 1 },
+  { x: 20, y: 1 },
+  { x: 9, y: 2 },
+  { x: 22, y: 2 },
+  { x: 7, y: 3 },
+  { x: 24, y: 3 },
+  // flat caps beneath each scallop hump — give the bottom a closed,
+  // slightly-wavy edge without protruding droplet tips
+  { x: 5, y: 26, w: 4 },
+  { x: 11, y: 26, w: 4 },
+  { x: 17, y: 26, w: 4 },
+  { x: 23, y: 26, w: 4 },
 ];
 
 export function WispMascot({
@@ -368,36 +370,57 @@ function Accessory({
 }
 
 function SendingAccessory({ animate }: { animate: boolean }) {
+  // Envelope sprite (8 wide × 6 tall) at cols 19..26, rows 2..7, with a
+  // three-stage marigold streaming trail to its right. The trail lines
+  // each light up for a third of the loop in sequence (closest first,
+  // furthest last) so the eye reads it as "something moving outward."
+  // Envelope-with-trail is a much more universal "message being sent"
+  // metaphor than the previous paper-plane silhouette.
   const navy = "var(--color-navy)";
   const cream = "var(--color-cream)";
-  const shade = "var(--color-cream-200)";
   const flash = "var(--color-marigold)";
   return (
     <g>
-      {/* marigold thrust chevrons */}
-      <g className={animate ? "anim-wisp-thrust" : ""}>
-        <rect x="20" y="5" width="2" height="1" fill={flash} />
-        <rect x="19" y="6" width="1" height="1" fill={flash} opacity="0.7" />
-        <rect x="19" y="3" width="1" height="1" fill={flash} opacity="0.55" />
-        <rect x="17" y="5" width="1" height="1" fill={flash} opacity="0.45" />
-      </g>
-      {/* plane (translates on the same loop) */}
-      <g className={animate ? "anim-wisp-plane" : ""}>
-        <rect x="28" y="1" width="1" height="1" fill={navy} />
-        <rect x="27" y="2" width="2" height="1" fill={navy} />
-        <rect x="26" y="3" width="3" height="1" fill={navy} />
-        <rect x="25" y="4" width="4" height="1" fill={navy} />
-        <rect x="22" y="5" width="7" height="1" fill={navy} />
-        <rect x="23" y="6" width="1" height="1" fill={navy} />
-        <rect x="25" y="6" width="3" height="1" fill={navy} />
-        <rect x="24" y="7" width="3" height="1" fill={navy} />
-        <rect x="28" y="3" width="1" height="2" fill={cream} />
-        <rect x="27" y="4" width="1" height="1" fill={cream} />
-        <rect x="24" y="6" width="1" height="1" fill={cream} />
-        <rect x="25" y="5" width="2" height="1" fill={cream} />
-        <rect x="26" y="4" width="1" height="1" fill={shade} />
-        <rect x="26" y="6" width="1" height="1" fill={shade} />
-      </g>
+      {/* envelope — outline */}
+      <rect x="19" y="2" width="8" height="1" fill={navy} />
+      <rect x="19" y="7" width="8" height="1" fill={navy} />
+      <rect x="19" y="3" width="1" height="4" fill={navy} />
+      <rect x="26" y="3" width="1" height="4" fill={navy} />
+      {/* envelope — cream interior */}
+      <rect x="20" y="3" width="6" height="4" fill={cream} />
+      {/* V flap — diagonal navy lines meeting at the centre, three pairs
+          of pixels descending toward the seal */}
+      <rect x="20" y="3" width="1" height="1" fill={navy} />
+      <rect x="25" y="3" width="1" height="1" fill={navy} />
+      <rect x="21" y="4" width="1" height="1" fill={navy} />
+      <rect x="24" y="4" width="1" height="1" fill={navy} />
+      <rect x="22" y="5" width="2" height="1" fill={navy} />
+      {/* streaming trail — three vertical 2-tall marigold bars, each
+          fading in/out on its own delay */}
+      <rect
+        x="28"
+        y="4"
+        width="1"
+        height="2"
+        fill={flash}
+        className={animate ? "anim-wisp-stream-1" : ""}
+      />
+      <rect
+        x="29"
+        y="4"
+        width="1"
+        height="2"
+        fill={flash}
+        className={animate ? "anim-wisp-stream-2" : ""}
+      />
+      <rect
+        x="30"
+        y="4"
+        width="1"
+        height="2"
+        fill={flash}
+        className={animate ? "anim-wisp-stream-3" : ""}
+      />
     </g>
   );
 }
