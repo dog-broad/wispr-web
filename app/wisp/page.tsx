@@ -15,15 +15,15 @@ export const metadata: Metadata = {
 };
 
 const STATES: { state: WispState; label: string; note: string }[] = [
-  { state: "idle", label: "idle", note: "neutral, blinking" },
-  { state: "wave", label: "wave", note: "hi! hand raised, motion sparks" },
-  { state: "sending", label: "sending", note: "carries a paper plane + thrust flash" },
-  { state: "linking", label: "linking", note: "carries a pink key" },
-  { state: "pinning", label: "pinning", note: "carries a purple 4-pip ticket" },
-  { state: "pairing", label: "pairing", note: "antenna with broadcast signal arcs" },
-  { state: "success", label: "success", note: "moss eyes, smile" },
-  { state: "error", label: "error", note: "pink eyes, frown" },
-  { state: "sleeping", label: "sleeping", note: "closed crescents + Zzz plume" },
+  { state: "idle", label: "idle", note: "sparkle eyes, blink + sparkle drift" },
+  { state: "wave", label: "wave", note: "^_^ grin, four sparkle motes twinkling" },
+  { state: "sending", label: "sending", note: "paper plane translating + thrust chevrons" },
+  { state: "linking", label: "linking", note: "interlocked pink chain links rocking" },
+  { state: "pinning", label: "pinning", note: "purple ticket, three pips brightening in turn" },
+  { state: "pairing", label: "pairing", note: "moss broadcast arcs rippling outward" },
+  { state: "success", label: "success", note: "pink heart eyes, soft smile" },
+  { state: "error", label: "error", note: "X eyes, small worried o-mouth" },
+  { state: "sleeping", label: "sleeping", note: "closed slits + tiered Zzz plume" },
 ];
 
 const SIZE_VARIANTS = [2, 3, 4, 5, 6];
@@ -144,15 +144,13 @@ export default function WispPreviewPage() {
           <PixelCard variant="default" className="mt-4">
             <ul className="grid grid-cols-1 gap-2 p-4 font-[var(--font-body)] text-[14px] sm:grid-cols-2">
               <li><strong>Canvas:</strong> 32×32 viewBox, scale 8 = one grid square per pixel.</li>
-              <li><strong>Dome:</strong> rows 0–7, navy cap at y=0 then cream widens 8 → 24.</li>
-              <li><strong>Face:</strong> rows 8–15, cream 24-wide trunk.</li>
-              <li><strong>Eyes:</strong> 5×5 navy irises at (7,8) and (20,8); 2×2 white sparkle upper-left, 1×1 sparkle lower-right. Sparkles drift on a 5 s loop.</li>
+              <li><strong>Silhouette:</strong> clean rounded balloon — no protruding arms. Dome widens 8 → 24 over rows 0–7, body holds 24 wide through row 23.</li>
+              <li><strong>Eyes (idle):</strong> 5×5 navy irises at (7,8) and (20,8) with a single 2×2 white sparkle upper-left. Sparkles drift on a 5 s loop.</li>
+              <li><strong>Eye expressions:</strong> X eyes on error, pink hearts on success, ^_^ closed curves on wave, narrow horizontal slits on sleeping.</li>
               <li><strong>Blush:</strong> 2×2 pink ovals at (4,11) and (26,11) with a brighter centre pixel.</li>
-              <li><strong>Mouth:</strong> rows 13–14, state-dependent shape.</li>
-              <li><strong>Arms:</strong> rows 16–17, silhouette flares to 28 wide.</li>
-              <li><strong>Body:</strong> rows 18–24, back to 24 wide.</li>
-              <li><strong>Skirt:</strong> rows 25–27, four scallop humps with 1-px droplet tips and rounded caps at y=28.</li>
-              <li><strong>Accessory zone:</strong> cols 19–31, rows 1–14 — each state animates independently (plane translates, link rocks, pin pips cycle, pair arcs ripple, wave hand bobs).</li>
+              <li><strong>Mouth:</strong> rows 14–16, state-dependent (w-smile default, open o for error, tiered for sleep, wide grin for wave).</li>
+              <li><strong>Skirt:</strong> rows 24–26, four scallop humps with 1-px droplet tips and rounded caps at y=27.</li>
+              <li><strong>Accessory zone:</strong> cols 0–31, rows 0–22 — plane translates, link rocks, pin pips cycle, pair arcs ripple, wave sparkle motes twinkle in turn.</li>
               <li><strong>Blink:</strong> 4 s loop, 3 frames (open → half-lid → closed → half-lid → open).</li>
             </ul>
           </PixelCard>

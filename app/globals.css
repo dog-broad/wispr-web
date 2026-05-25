@@ -232,9 +232,12 @@ time {
   75%, 100% { opacity: 0; }
 }
 
-@keyframes wisp-wave {
-  0%, 49% { transform: translate(0, 0) rotate(-10deg); }
-  50%, 100% { transform: translate(0, -1px) rotate(10deg); }
+@keyframes wisp-twinkle {
+  /* Sparkle fades in for one third of the cycle, then back out. Delays
+     on each sparkle's class stagger the in/out so the field feels alive. */
+  0%, 30% { opacity: 0; }
+  31%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0; }
 }
 
 @keyframes wisp-zzz {
@@ -307,9 +310,15 @@ time {
   animation: wisp-pair-3 1200ms steps(1) infinite;
 }
 
-.anim-wisp-wave {
-  animation: wisp-wave 600ms steps(1) infinite;
+.anim-wisp-twinkle-1,
+.anim-wisp-twinkle-2,
+.anim-wisp-twinkle-3,
+.anim-wisp-twinkle-4 {
+  animation: wisp-twinkle 2400ms steps(1) infinite;
 }
+.anim-wisp-twinkle-2 { animation-delay: 600ms; }
+.anim-wisp-twinkle-3 { animation-delay: 1200ms; }
+.anim-wisp-twinkle-4 { animation-delay: 1800ms; }
 
 .anim-wisp-zzz {
   animation: wisp-zzz 2400ms steps(4) infinite;
@@ -334,7 +343,10 @@ time {
   .anim-wisp-pair-1,
   .anim-wisp-pair-2,
   .anim-wisp-pair-3,
-  .anim-wisp-wave,
+  .anim-wisp-twinkle-1,
+  .anim-wisp-twinkle-2,
+  .anim-wisp-twinkle-3,
+  .anim-wisp-twinkle-4,
   .anim-wisp-zzz,
   .anim-drift-in,
   .anim-marquee {
