@@ -8,6 +8,7 @@ import {
 } from "@/lib/crypto/encoding";
 import { env } from "@/lib/env";
 import type { Language } from "@/lib/highlight/highlight";
+import { detectUrl } from "@/lib/url-preview/detect";
 import {
   DecryptingCard,
   GoneCard,
@@ -16,6 +17,7 @@ import {
   NetworkErrorCard,
   NotFoundCard,
   OkCard,
+  UrlOkCard,
   WrongKeyCard,
 } from "./ReceiveCards";
 
@@ -25,6 +27,7 @@ type ReceiveState =
   | { kind: "fetching" }
   | { kind: "decrypting" }
   | { kind: "ok"; text: string; lang: Language | null }
+  | { kind: "ok-url"; url: URL }
   | { kind: "gone"; reason: "expired" | "burned" | "taken_down" }
   | { kind: "not-found" }
   | { kind: "wrong-key" }
@@ -130,6 +133,19 @@ export function Receive({ snippetId }: { snippetId: string }) {
       const plaintextBytes = await crypto.decrypt(key, ciphertext, iv);
       const text = new TextDecoder().decode(plaintextBytes);
 
+      // URL share: skip the metadata decrypt; the URL is the content.
+      // Validate the decoded text actually parses as a URL — the
+      // server-side content_type is opaque to us and could lie. (Not
+      // a security boundary; the worst case is rendering a plain
+      // string in the URL card.)
+      if (body.content_type === "url") {
+        const url = detectUrl(text);
+        if (url !== null) {
+          setState({ kind: "ok-url", url });
+          return;
+        }
+      }
+
       // Decrypt the metadata too so we can pick up the lang hint. A
       // failure here drops back to plain rendering — the content is
       // recoverable even without the metadata, so a partial decrypt
@@ -182,6 +198,8 @@ export function Receive({ snippetId }: { snippetId: string }) {
       return <WrongKeyCard />;
     case "ok":
       return <OkCard text={state.text} lang={state.lang} />;
+    case "ok-url":
+      return <UrlOkCard url={state.url} />;
     case "gone":
       return <GoneCard reason={state.reason} />;
     case "not-found":

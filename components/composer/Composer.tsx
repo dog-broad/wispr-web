@@ -17,6 +17,7 @@ import {
 import { env } from "@/lib/env";
 import { detectLanguage } from "@/lib/highlight/detect";
 import type { Language } from "@/lib/highlight/highlight";
+import { detectUrl } from "@/lib/url-preview/detect";
 import type { SentDetails } from "./SentState";
 
 // SentState carries the QR renderer (qrcode.react) which is only needed
@@ -57,11 +58,12 @@ export function Composer() {
   const [ttlSeconds, setTtlSeconds] = useState<number>(600);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
-  // Recompute the language guess on every keystroke. The detector is a
-  // cheap regex scan and the textarea is capped at ~64 KiB; running on
-  // every change avoids the staleness a debounced detector would have
-  // when the user hits Cmd+Enter immediately after pasting.
-  const detectedLanguage = detectLanguage(text);
+  // Content-type detection runs on every keystroke. URL takes priority
+  // over language because a single-URL share gets its own rich preview
+  // surface on receive — code-like detection inside a URL string would
+  // misclassify (URL paths happen to contain JS-ish punctuation).
+  const detectedUrl = detectUrl(text);
+  const detectedLanguage = detectedUrl === null ? detectLanguage(text) : null;
 
   const send = useCallback(async () => {
     if (!text.trim()) return;
@@ -72,16 +74,22 @@ export function Composer() {
       const key = await crypto.generateKey();
       const contentBytes = new TextEncoder().encode(text);
 
-      const lang = detectLanguage(text);
+      // Re-run detection at send time so the body reflects the final
+      // textarea state regardless of any intermediate edits.
+      const urlAtSend = detectUrl(text);
+      const langAtSend = urlAtSend === null ? detectLanguage(text) : null;
+      const contentType: "text" | "code" | "url" =
+        urlAtSend !== null ? "url" : langAtSend !== null ? "code" : "text";
+
       const content = await crypto.encrypt(key, contentBytes);
       const meta = await crypto.encrypt(
         key,
-        encodeMetadata(lang === null ? { v: 1 } : { v: 1, lang }),
+        encodeMetadata(langAtSend === null ? { v: 1 } : { v: 1, lang: langAtSend }),
       );
 
       const body = {
         share_mode: "link",
-        content_type: lang === null ? "text" : "code",
+        content_type: contentType,
         ciphertext: base64Encode(packEnvelope(content.iv, content.ciphertext)),
         encrypted_metadata: base64Encode(packEnvelope(meta.iv, meta.ciphertext)),
         ttl_seconds: ttlSeconds,
@@ -184,6 +192,14 @@ Encrypted in your browser before it leaves."
               disabled
               title="Optional password gate ships with the next release"
             />
+            {detectedUrl !== null && (
+              <PixelPill
+                icon={<PixelIcon name="link" size={12} />}
+                label="url"
+                value={detectedUrl.hostname}
+                title="URL detected — receiver will see a link preview"
+              />
+            )}
             {detectedLanguage !== null && (
               <PixelPill
                 icon={<PixelIcon name="code" size={12} />}
