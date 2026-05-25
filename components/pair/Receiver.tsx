@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ConnectBanner, type ConnectBannerState } from "@/components/pair/ConnectBanner";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
@@ -95,7 +96,7 @@ export function Receiver({ initialPin }: ReceiverProps) {
 
       <PixelCard variant="lifted" accent="marigold">
         <div className="flex flex-col items-center gap-6 py-2 md:py-4">
-          <ConnectBanner phase={phase} />
+          <ConnectBanner state={bannerFromPhase(phase)} />
           <p className="font-[var(--font-body)] text-[14px] uppercase tracking-widest opacity-70">
             enter the 4-digit PIN
           </p>
@@ -129,28 +130,10 @@ export function Receiver({ initialPin }: ReceiverProps) {
   );
 }
 
-function ConnectBanner({ phase }: { phase: Phase }) {
-  if (phase.kind === "connected") {
-    return (
-      <div className="flex w-full items-center gap-3 border-[2px] border-[var(--color-moss)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-body)] text-[14px]">
-        <span className="inline-block h-3 w-3 bg-[var(--color-moss)]" aria-hidden />
-        <span>Connected</span>
-        <span className="ml-auto text-[12px] opacity-60">
-          SAS landing in next ship
-        </span>
-      </div>
-    );
-  }
-  if (phase.kind === "failed") {
-    return (
-      <div className="flex w-full items-center gap-3 border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-body)] text-[14px]">
-        <span className="inline-block h-3 w-3 bg-[var(--color-pink)]" aria-hidden />
-        <span className="font-semibold">Pair failed</span>
-        <span className="num ml-auto opacity-80">{phase.reason}</span>
-      </div>
-    );
-  }
-  return null;
+function bannerFromPhase(phase: Phase): ConnectBannerState {
+  if (phase.kind === "connected") return { kind: "connected", sas: phase.sas };
+  if (phase.kind === "failed") return { kind: "failed", reason: phase.reason };
+  return { kind: "idle" };
 }
 
 function StatusLine({ phase }: { phase: Phase }) {
