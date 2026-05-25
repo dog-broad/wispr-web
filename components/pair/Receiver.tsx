@@ -8,14 +8,14 @@ import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { WispMascot } from "@/components/pixel/WispMascot";
 import { PinInput, emptyPin } from "@/components/pair/PinInput";
 import { env } from "@/lib/env";
-import { PairSession, type PairPhase } from "@/lib/pair/session";
+import { PairSession, type PairFailure, type PairPhase } from "@/lib/pair/session";
 
 // Phase for the receiver-side entry → connection sequence.
 type Phase =
   | { kind: "entering" }
   | { kind: "connecting"; pin: string; sessionPhase: PairPhase }
   | { kind: "connected"; pin: string; sas: string }
-  | { kind: "failed"; pin: string; reason: string };
+  | { kind: "failed"; pin: string; failure: PairFailure };
 
 const PIN_LENGTH = 4;
 
@@ -48,8 +48,8 @@ export function Receiver({ initialPin }: ReceiverProps) {
         onConnected: ({ sas }) => {
           setPhase({ kind: "connected", pin: completed, sas });
         },
-        onFailed: (reason) => {
-          setPhase({ kind: "failed", pin: completed, reason });
+        onFailed: (failure) => {
+          setPhase({ kind: "failed", pin: completed, failure });
         },
       },
     );
@@ -132,7 +132,7 @@ export function Receiver({ initialPin }: ReceiverProps) {
 
 function bannerFromPhase(phase: Phase): ConnectBannerState {
   if (phase.kind === "connected") return { kind: "connected", sas: phase.sas };
-  if (phase.kind === "failed") return { kind: "failed", reason: phase.reason };
+  if (phase.kind === "failed") return { kind: "failed", failure: phase.failure };
   return { kind: "idle" };
 }
 
@@ -161,14 +161,10 @@ function StatusLine({ phase }: { phase: Phase }) {
       </p>
     );
   }
-  return (
-    <p className="text-center font-[var(--font-body)] text-[14px]">
-      <span className="font-semibold text-[var(--color-pink)]">
-        Couldn&apos;t reach the other device.
-      </span>{" "}
-      <span className="num opacity-90">{phase.reason}</span>
-    </p>
-  );
+  // ``failed`` — the ConnectBanner up top already renders the §7.6.7
+  // copy for every reachable reason, so the status line stays out of
+  // the way to avoid duplicate messaging.
+  return null;
 }
 
 function describePhase(phase: PairPhase): string {
