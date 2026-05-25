@@ -7,34 +7,46 @@ import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { WispMascot } from "@/components/pixel/WispMascot";
 import { createPair } from "@/lib/api/pair";
 import type { CreatePairResponse } from "@/lib/api/pair";
+import { env } from "@/lib/env";
+import { PairSession, type PairPhase } from "@/lib/pair/session";
 
-// Live in one of these states at a time.
-type Phase =
+// PIN-issuance state machine. The session-connection state machine
+// lives in ``SessionState`` and overlays this — the PIN may have been
+// issued and counted down even while the encrypted channel is up.
+type IssueState =
   | { kind: "loading" }
   | { kind: "waiting"; pair: CreatePairResponse; remainingSeconds: number }
   | { kind: "expired"; pair: CreatePairResponse }
   | { kind: "failed"; reason: string };
 
+type SessionState =
+  | { kind: "idle" }
+  | { kind: "connecting"; phase: PairPhase }
+  | { kind: "connected"; sas: string }
+  | { kind: "failed"; reason: string };
+
 const TICK_INTERVAL_MS = 1000;
 
 export function PairSender() {
-  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  const [issue, setIssue] = useState<IssueState>({ kind: "loading" });
+  const [session, setSession] = useState<SessionState>({ kind: "idle" });
   const tickRef = useRef<number | null>(null);
+  const sessionRef = useRef<PairSession | null>(null);
 
   const issuePair = useCallback(async (controller: AbortController) => {
-    setPhase({ kind: "loading" });
+    setIssue({ kind: "loading" });
     try {
       const pair = await createPair({ signal: controller.signal });
       const remaining = remainingSecondsFrom(pair.expiresAt);
       if (remaining <= 0) {
-        setPhase({ kind: "expired", pair });
+        setIssue({ kind: "expired", pair });
       } else {
-        setPhase({ kind: "waiting", pair, remainingSeconds: remaining });
+        setIssue({ kind: "waiting", pair, remainingSeconds: remaining });
       }
     } catch (err) {
       if (controller.signal.aborted) return;
       const reason = err instanceof Error ? err.message : String(err);
-      setPhase({ kind: "failed", reason });
+      setIssue({ kind: "failed", reason });
     }
   }, []);
 
@@ -51,7 +63,7 @@ export function PairSender() {
   // decrementing a counter, so a tab that loses background ticks
   // converges to the correct value when it foregrounds again.
   useEffect(() => {
-    if (phase.kind !== "waiting") {
+    if (issue.kind !== "waiting") {
       if (tickRef.current !== null) {
         window.clearInterval(tickRef.current);
         tickRef.current = null;
@@ -59,7 +71,7 @@ export function PairSender() {
       return;
     }
     const handle = window.setInterval(() => {
-      setPhase((current) => {
+      setIssue((current) => {
         if (current.kind !== "waiting") return current;
         const remaining = remainingSecondsFrom(current.pair.expiresAt);
         if (remaining <= 0) {
@@ -73,9 +85,44 @@ export function PairSender() {
       window.clearInterval(handle);
       tickRef.current = null;
     };
-  }, [phase.kind]);
+  }, [issue.kind]);
+
+  // Spawn one PairSession per issued PIN. The session owns its own
+  // teardown; the effect closes it when the PIN changes or the
+  // component unmounts.
+  useEffect(() => {
+    if (issue.kind !== "waiting") return;
+    const { pin, senderToken } = issue.pair;
+    setSession({ kind: "connecting", phase: "opening_signaling" });
+    const s = PairSession.createSender(
+      env.apiBaseUrl,
+      { pin, senderToken },
+      {
+        onPhase: (phase) => {
+          setSession((current) => {
+            if (current.kind === "connected") return current;
+            if (current.kind === "failed") return current;
+            return { kind: "connecting", phase };
+          });
+        },
+        onConnected: ({ sas }) => {
+          setSession({ kind: "connected", sas });
+        },
+        onFailed: (reason) => {
+          setSession({ kind: "failed", reason });
+        },
+      },
+    );
+    sessionRef.current = s;
+    return () => {
+      s.close("issue_changed");
+      sessionRef.current = null;
+    };
+  }, [issue]);
 
   const newPin = useCallback(() => {
+    sessionRef.current?.close("new_pin_requested");
+    setSession({ kind: "idle" });
     const controller = new AbortController();
     void issuePair(controller);
   }, [issuePair]);
@@ -83,35 +130,63 @@ export function PairSender() {
   return (
     <section className="relative">
       <div className="pointer-events-none absolute -top-8 right-4 z-10 hidden md:block md:-top-12 md:right-8">
-        <WispMascot state="pairing" size={3} />
+        <WispMascot
+          state={session.kind === "connected" ? "success" : "pairing"}
+          size={3}
+        />
       </div>
 
       <PixelCard variant="lifted" accent="marigold">
         <div className="flex flex-col items-center gap-6 py-2 md:py-4">
-          <PinDisplay phase={phase} />
-          <Countdown phase={phase} />
-          <Action phase={phase} onNewPin={newPin} />
-          <Helper phase={phase} />
+          <ConnectBanner session={session} />
+          <PinDisplay issue={issue} muted={session.kind === "connected"} />
+          <Countdown issue={issue} />
+          <Action issue={issue} onNewPin={newPin} />
+          <Helper issue={issue} session={session} />
         </div>
       </PixelCard>
     </section>
   );
 }
 
-function PinDisplay({ phase }: { phase: Phase }) {
-  if (phase.kind === "loading") {
+function ConnectBanner({ session }: { session: SessionState }) {
+  if (session.kind === "connected") {
+    return (
+      <div className="flex w-full items-center gap-3 border-[2px] border-[var(--color-moss)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-body)] text-[14px]">
+        <span className="inline-block h-3 w-3 bg-[var(--color-moss)]" aria-hidden />
+        <span>Connected</span>
+        <span className="ml-auto text-[12px] opacity-60">
+          SAS landing in next ship
+        </span>
+      </div>
+    );
+  }
+  if (session.kind === "failed") {
+    return (
+      <div className="flex w-full items-center gap-3 border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-body)] text-[14px]">
+        <span className="inline-block h-3 w-3 bg-[var(--color-pink)]" aria-hidden />
+        <span className="font-semibold">Pair failed</span>
+        <span className="num ml-auto opacity-80">{session.reason}</span>
+      </div>
+    );
+  }
+  return null;
+}
+
+function PinDisplay({ issue, muted }: { issue: IssueState; muted: boolean }) {
+  if (issue.kind === "loading") {
     return <PlaceholderPin label="——" />;
   }
-  if (phase.kind === "failed") {
+  if (issue.kind === "failed") {
     return <PlaceholderPin label="!!" />;
   }
-  const pin = phase.kind === "waiting" ? phase.pair.pin : phase.pair.pin;
-  const muted = phase.kind === "expired";
+  const pin = issue.pair.pin;
+  const dim = muted || issue.kind === "expired";
   return (
     <div
       className={
         "flex items-center justify-center gap-2 font-[var(--font-mono)] tabular-nums " +
-        (muted ? "opacity-40" : "")
+        (dim ? "opacity-40" : "")
       }
       aria-label={`Pair PIN ${pin.split("").join(" ")}`}
     >
@@ -148,25 +223,25 @@ function PlaceholderPin({ label }: { label: string }) {
   );
 }
 
-function Countdown({ phase }: { phase: Phase }) {
-  if (phase.kind === "loading") {
+function Countdown({ issue }: { issue: IssueState }) {
+  if (issue.kind === "loading") {
     return (
       <p className="font-[var(--font-body)] text-[14px] opacity-70">
         Issuing PIN…
       </p>
     );
   }
-  if (phase.kind === "waiting") {
+  if (issue.kind === "waiting") {
     return (
       <p className="font-[var(--font-body)] text-[14px] opacity-80">
         expires in{" "}
         <span className="num font-[var(--font-mono)] text-[18px]">
-          {phase.remainingSeconds}s
+          {issue.remainingSeconds}s
         </span>
       </p>
     );
   }
-  if (phase.kind === "expired") {
+  if (issue.kind === "expired") {
     return (
       <p className="font-[var(--font-body)] text-[14px] opacity-80">
         <span className="text-[var(--color-pink)]">PIN expired.</span> Get a new
@@ -179,16 +254,16 @@ function Countdown({ phase }: { phase: Phase }) {
       <span className="font-semibold text-[var(--color-pink)]">
         Couldn&apos;t issue a PIN.
       </span>{" "}
-      <span className="num opacity-90">{phase.reason}</span>
+      <span className="num opacity-90">{issue.reason}</span>
     </p>
   );
 }
 
-function Action({ phase, onNewPin }: { phase: Phase; onNewPin: () => void }) {
-  const busy = phase.kind === "loading";
+function Action({ issue, onNewPin }: { issue: IssueState; onNewPin: () => void }) {
+  const busy = issue.kind === "loading";
   return (
     <PixelButton
-      variant={phase.kind === "expired" ? "primary" : "outline"}
+      variant={issue.kind === "expired" ? "primary" : "outline"}
       size="md"
       leading={<PixelIcon name="reload" size={16} />}
       disabled={busy}
@@ -199,17 +274,27 @@ function Action({ phase, onNewPin }: { phase: Phase; onNewPin: () => void }) {
   );
 }
 
-function Helper({ phase }: { phase: Phase }) {
+function Helper({ issue, session }: { issue: IssueState; session: SessionState }) {
+  let body: string;
+  if (session.kind === "connected") {
+    body = "Channel is live — content runs peer-to-peer from here.";
+  } else if (session.kind === "connecting" && session.phase === "negotiating") {
+    body = "Other device joined. Bringing up the encrypted channel…";
+  } else if (issue.kind === "expired") {
+    body = "PINs are short-lived on purpose — they only live until someone joins.";
+  } else {
+    body = "On the other device, open Wispr and enter this PIN. Pair stays peer-to-peer; nothing is saved.";
+  }
   return (
     <p className="flex items-center gap-2 text-center font-[var(--font-body)] text-[14px] opacity-70">
       <span className="md:hidden">
-        <WispMascot state="pairing" size={2} animate={false} />
+        <WispMascot
+          state={session.kind === "connected" ? "success" : "pairing"}
+          size={2}
+          animate={false}
+        />
       </span>
-      <span>
-        {phase.kind === "expired"
-          ? "PINs are short-lived on purpose — they only live until someone joins."
-          : "On the other device, open Wispr and enter this PIN. Pair stays peer-to-peer; nothing is saved."}
-      </span>
+      <span>{body}</span>
     </p>
   );
 }
