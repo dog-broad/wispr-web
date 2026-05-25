@@ -51,15 +51,14 @@ export interface PairFailure {
   postConnection: boolean;
 }
 
+export type MessageHandler = (data: ArrayBuffer | string) => void;
+
 export interface PairSessionEvents {
   /** Fires on every phase transition so the page can mirror state. */
   onPhase?: (phase: PairPhase) => void;
   /** Fires once when both data-channel-open and session-key-derived are
    *  true. The ``sas`` is the 4-char value to show in the connect banner. */
   onConnected?: (info: { sas: string; sessionKey: CryptoKey }) => void;
-  /** Inbound application data over the encrypted channel. (Decryption
-   *  isn't done here yet — the next task layers AES-GCM on top.) */
-  onMessage?: (data: ArrayBuffer | string) => void;
   /** Pair was refused by the server, never established, or torn down
    *  mid-session. ``reason`` matches the wire ``pair_failed.reason``
    *  for server-originated failures and is one of the synthesized
@@ -102,6 +101,11 @@ export class PairSession {
   // Negotiation watchdog — cleared when ``connected`` fires or the
   // session closes; fires ``negotiation_timeout`` if neither happens.
   private negotiationTimer: ReturnType<typeof setTimeout> | null = null;
+  // Late-bound handler for inbound application data on the data
+  // channel. The page registers this in ``onConnected`` (when it has
+  // the session key in hand to decrypt), so the constructor's event
+  // pack can stay focused on signaling-level state.
+  private messageHandler: MessageHandler | null = null;
 
   private constructor(
     role: "sender" | "receiver",
@@ -243,8 +247,15 @@ export class PairSession {
       }
     });
     channel.addEventListener("message", (event) => {
-      this.events.onMessage?.(event.data);
+      this.messageHandler?.(event.data);
     });
+  }
+
+  /** Register the inbound-message handler. Called by the encrypted
+   *  channel layer once ``onConnected`` has handed it the session
+   *  key; ``setMessageHandler(null)`` detaches. */
+  setMessageHandler(handler: MessageHandler | null): void {
+    this.messageHandler = handler;
   }
 
   private handleSignalingOpen(): void {
