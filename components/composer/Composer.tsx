@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import dynamic from "next/dynamic";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
@@ -14,7 +15,11 @@ import {
   base64urlEncode,
   packEnvelope,
 } from "@/lib/crypto/encoding";
+import { derivePasswordHash, generatePasswordSalt } from "@/lib/crypto/password";
 import { env } from "@/lib/env";
+import { detectLanguage } from "@/lib/highlight/detect";
+import type { Language } from "@/lib/highlight/highlight";
+import { detectUrl } from "@/lib/url-preview/detect";
 import type { SentDetails } from "./SentState";
 
 // SentState carries the QR renderer (qrcode.react) which is only needed
@@ -38,33 +43,101 @@ const LIFETIME_OPTIONS = [
   { value: 86400, label: "24 hr" },
 ] as const;
 
-const METADATA_PLAINTEXT = new TextEncoder().encode(JSON.stringify({ v: 1 }));
+// Inline-file ceiling for Link mode. PROJECT.md §10 M2: 256 KiB
+// inline; R2-backed larger uploads land in M3. The API cap on
+// ciphertext bytes is set with this in mind.
+const MAX_INLINE_FILE_BYTES = 256 * 1024;
+
+// Encrypted metadata is opaque to the server. The schema is a version
+// tag plus optional fields the receiver uses to render — the ``lang``
+// hint drives syntax highlighting; ``name`` / ``mime`` describe an
+// inline file attachment.
+interface MetadataPayload {
+  v: 1;
+  lang?: Language;
+  name?: string;
+  mime?: string;
+}
+
+function encodeMetadata(meta: MetadataPayload): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(meta));
+}
 
 export function Composer() {
   const [text, setText] = useState("");
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const [ttlSeconds, setTtlSeconds] = useState<number>(600);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [passwordEnabled, setPasswordEnabled] = useState(false);
+  const [password, setPassword] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Content-type detection runs on every keystroke. URL takes priority
+  // over language because a single-URL share gets its own rich preview
+  // surface on receive — code-like detection inside a URL string would
+  // misclassify (URL paths happen to contain JS-ish punctuation).
+  const detectedUrl = attachedFile === null ? detectUrl(text) : null;
+  const detectedLanguage =
+    attachedFile === null && detectedUrl === null ? detectLanguage(text) : null;
 
   const send = useCallback(async () => {
-    if (!text.trim()) return;
+    if (attachedFile === null && !text.trim()) return;
     setStatus({ kind: "encrypting" });
     try {
       const crypto = await import("@/lib/crypto/client");
 
       const key = await crypto.generateKey();
-      const contentBytes = new TextEncoder().encode(text);
+
+      let contentBytes: Uint8Array;
+      let metadata: MetadataPayload;
+      let contentType: "text" | "code" | "url" | "file";
+
+      if (attachedFile !== null) {
+        contentBytes = new Uint8Array(await attachedFile.arrayBuffer());
+        metadata = {
+          v: 1,
+          name: attachedFile.name,
+          mime: attachedFile.type || "application/octet-stream",
+        };
+        contentType = "file";
+      } else {
+        contentBytes = new TextEncoder().encode(text);
+        // Re-run detection at send time so the body reflects the final
+        // textarea state regardless of any intermediate edits.
+        const urlAtSend = detectUrl(text);
+        const langAtSend = urlAtSend === null ? detectLanguage(text) : null;
+        metadata = langAtSend === null ? { v: 1 } : { v: 1, lang: langAtSend };
+        contentType =
+          urlAtSend !== null ? "url" : langAtSend !== null ? "code" : "text";
+      }
 
       const content = await crypto.encrypt(key, contentBytes);
-      const meta = await crypto.encrypt(key, METADATA_PLAINTEXT);
+      const meta = await crypto.encrypt(key, encodeMetadata(metadata));
 
-      const body = {
+      // Compute the optional password gate (client-side PBKDF2 — see
+      // [D-260526-01]). The raw password never reaches the server.
+      let passwordHash: string | undefined;
+      let passwordSalt: string | undefined;
+      if (passwordEnabled && password.length > 0) {
+        const salt = generatePasswordSalt();
+        const hash = await derivePasswordHash(password, salt);
+        passwordHash = base64Encode(hash);
+        passwordSalt = base64Encode(salt);
+      }
+
+      const body: Record<string, unknown> = {
         share_mode: "link",
-        content_type: "text",
+        content_type: contentType,
         ciphertext: base64Encode(packEnvelope(content.iv, content.ciphertext)),
         encrypted_metadata: base64Encode(packEnvelope(meta.iv, meta.ciphertext)),
         ttl_seconds: ttlSeconds,
         max_reads: 1,
       };
+      if (passwordHash !== undefined && passwordSalt !== undefined) {
+        body.password_hash = passwordHash;
+        body.password_salt = passwordSalt;
+      }
 
       setStatus({ kind: "posting" });
       const response = await fetch(`${env.apiBaseUrl}/snippets`, {
@@ -100,11 +173,15 @@ export function Composer() {
       const reason = err instanceof Error ? err.message : String(err);
       setStatus({ kind: "failed", reason });
     }
-  }, [text, ttlSeconds]);
+  }, [attachedFile, password, passwordEnabled, text, ttlSeconds]);
 
   function reset() {
     setText("");
+    setAttachedFile(null);
+    setAttachError(null);
     setTtlSeconds(600);
+    setPasswordEnabled(false);
+    setPassword("");
     setStatus({ kind: "idle" });
   }
 
@@ -115,11 +192,43 @@ export function Composer() {
     }
   }
 
+  function onFilePick(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    // Reset the input so the same file can be re-selected after a failed
+    // attempt or after the user clears it.
+    event.target.value = "";
+    if (!file) return;
+    setAttachError(null);
+    if (file.size > MAX_INLINE_FILE_BYTES) {
+      setAttachError(
+        `file too large — max ${formatBytes(MAX_INLINE_FILE_BYTES)} inline; larger uploads ship in the next milestone.`,
+      );
+      return;
+    }
+    setAttachedFile(file);
+  }
+
+  function clearAttachment() {
+    setAttachedFile(null);
+    setAttachError(null);
+  }
+
   if (status.kind === "sent") {
     return <SentState details={status.details} onSendAnother={reset} />;
   }
 
   const busy = status.kind === "encrypting" || status.kind === "posting";
+  const sendDisabled =
+    busy ||
+    (attachedFile === null && !text.trim()) ||
+    (passwordEnabled && password.length === 0);
+  const primaryLabel = busy
+    ? status.kind === "encrypting"
+      ? "Encrypting…"
+      : "Sending…"
+    : attachedFile !== null
+      ? "Send file"
+      : "Get a link";
 
   return (
     <section className="relative">
@@ -129,16 +238,37 @@ export function Composer() {
 
       <PixelCard variant="lifted" accent="pink">
         <div className="flex flex-col gap-4">
-          <PixelTextarea
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Type or paste anything.
-text — code — urls (up to 25 MB)
+          {attachedFile === null ? (
+            <PixelTextarea
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Type or paste anything.
+text — code — urls — files (up to 256 KiB)
 Encrypted in your browser before it leaves."
-            rows={6}
-            aria-label="Content to send"
-          />
+              rows={6}
+              aria-label="Content to send"
+            />
+          ) : (
+            <FileAttachmentRow file={attachedFile} onClear={clearAttachment} />
+          )}
+
+          {attachError !== null && (
+            <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-body)] text-[14px]">
+              <span className="font-semibold text-[var(--color-pink)]">
+                Couldn&apos;t attach.
+              </span>{" "}
+              <span className="opacity-80">{attachError}</span>
+            </p>
+          )}
+
+          {passwordEnabled && (
+            <PasswordRow
+              value={password}
+              onChange={setPassword}
+              disabled={busy}
+            />
+          )}
 
           <div className="flex flex-wrap gap-2">
             <PixelSelectPill
@@ -155,13 +285,59 @@ Encrypted in your browser before it leaves."
               disabled
               title="Link burns after one read; multi-read PINs ship later"
             />
-            <PixelPill
-              icon={<PixelIcon name="lock" size={12} />}
-              label="password"
-              value="off"
-              disabled
-              title="Optional password gate ships with the next release"
+            <button
+              type="button"
+              onClick={() => {
+                setPasswordEnabled((current) => {
+                  const next = !current;
+                  if (!next) setPassword("");
+                  return next;
+                });
+              }}
+              disabled={busy}
+              className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 font-[var(--font-display)] text-[12px] tracking-widest uppercase text-[var(--fg)] shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
+              aria-pressed={passwordEnabled}
+              title="Optional password gate on top of the URL key"
+            >
+              <PixelIcon name="lock" size={12} />
+              password
+              <span className="num opacity-70">
+                {passwordEnabled ? "on" : "off"}
+              </span>
+            </button>
+            {detectedUrl !== null && (
+              <PixelPill
+                icon={<PixelIcon name="link" size={12} />}
+                label="url"
+                value={detectedUrl.hostname}
+                title="URL detected — receiver will see a link preview"
+              />
+            )}
+            {detectedLanguage !== null && (
+              <PixelPill
+                icon={<PixelIcon name="code" size={12} />}
+                label="code"
+                value={detectedLanguage}
+                title="Code detected — receiver will see syntax highlighting"
+              />
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={onFilePick}
+              aria-label="Attach a file"
             />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={attachedFile !== null || busy}
+              className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 font-[var(--font-display)] text-[12px] tracking-widest uppercase text-[var(--fg)] shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
+              title="Attach a file (up to 256 KiB)"
+            >
+              <PixelIcon name="attachment" size={12} />
+              attach
+            </button>
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -169,20 +345,21 @@ Encrypted in your browser before it leaves."
               variant="primary"
               size="lg"
               block
-              leading={<PixelIcon name="link" size={20} />}
+              leading={
+                <PixelIcon
+                  name={attachedFile !== null ? "file" : "link"}
+                  size={20}
+                />
+              }
               trailing={
                 <kbd className="ml-1 inline-flex items-center gap-1 border-2 border-current px-1.5 py-0.5 font-[var(--font-mono)] text-[12px]">
                   <PixelIcon name="command" size={12} />↵
                 </kbd>
               }
               onClick={send}
-              disabled={busy || !text.trim()}
+              disabled={sendDisabled}
             >
-              {status.kind === "encrypting"
-                ? "Encrypting…"
-                : status.kind === "posting"
-                  ? "Sending…"
-                  : "Get a link"}
+              {primaryLabel}
             </PixelButton>
             <PixelButton
               variant="secondary"
@@ -216,6 +393,70 @@ Encrypted in your browser before it leaves."
       </PixelCard>
     </section>
   );
+}
+
+function PasswordRow({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1 border-[2px] border-[var(--color-purple)] bg-[var(--bg-sunk)] px-3 py-2">
+      <label className="font-[var(--font-display)] text-[12px] tracking-widest uppercase opacity-80">
+        password gate
+      </label>
+      <input
+        type="password"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        placeholder="receiver types this to unlock"
+        className="border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-3 py-2 font-[var(--font-mono)] text-[16px] focus:outline-none focus:border-[var(--color-pink)]"
+        aria-label="Snippet password"
+      />
+      <p className="font-[var(--font-body)] text-[12px] opacity-70">
+        Access-control only — the URL key still decrypts the content. Use a
+        secret phrase you can share out-of-band.
+      </p>
+    </div>
+  );
+}
+
+function FileAttachmentRow({ file, onClear }: { file: File; onClear: () => void }) {
+  return (
+    <div className="flex items-center gap-3 border-[3px] border-[var(--border)] bg-[var(--bg-sunk)] px-4 py-3">
+      <PixelIcon name="file" size={24} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-[var(--font-body)] text-[16px] font-semibold">
+          {file.name}
+        </p>
+        <p className="num font-[var(--font-mono)] text-[12px] opacity-70">
+          {formatBytes(file.size)}
+          {file.type && <> · {file.type}</>}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label="Remove attachment"
+        className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-1 font-[var(--font-display)] text-[12px] tracking-widest uppercase text-[var(--fg)] shadow-[2px_2px_0_0_var(--border)]"
+      >
+        <PixelIcon name="close" size={12} />
+        clear
+      </button>
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0)} KiB`;
+  return `${(kb / 1024).toFixed(1)} MiB`;
 }
 
 async function safeErrorBody(response: Response): Promise<string | null> {
