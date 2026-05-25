@@ -149,7 +149,11 @@ export function PairSender() {
 
           {session.kind === "connected" ? (
             <>
-              <ExchangeLog messages={exchange.transcript} onSend={exchange.sendText} />
+              <ExchangeLog
+                messages={exchange.transcript}
+                onSend={exchange.sendText}
+                onAttach={exchange.sendFile}
+              />
               <div className="flex justify-center">
                 <PixelButton
                   variant="outline"
