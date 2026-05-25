@@ -11,6 +11,7 @@ import type { Language } from "@/lib/highlight/highlight";
 import { detectUrl } from "@/lib/url-preview/detect";
 import {
   DecryptingCard,
+  FileOkCard,
   GoneCard,
   MalformedCard,
   MissingKeyCard,
@@ -28,6 +29,7 @@ type ReceiveState =
   | { kind: "decrypting" }
   | { kind: "ok"; text: string; lang: Language | null }
   | { kind: "ok-url"; url: URL }
+  | { kind: "ok-file"; blob: Blob; name: string; mime: string }
   | { kind: "gone"; reason: "expired" | "burned" | "taken_down" }
   | { kind: "not-found" }
   | { kind: "wrong-key" }
@@ -42,12 +44,14 @@ type FetchBody = {
   encrypted_metadata: string;
 };
 
-// Same shape as the sender's MetadataPayload. The receiver only reads
-// the lang hint here; future fields (filename for inline file
-// snippets, etc.) follow the same versioned envelope.
+// Same shape as the sender's MetadataPayload. The receiver reads the
+// lang hint (drives syntax highlighting) and the file fields (drive
+// the download card).
 interface MetadataPayload {
   v?: number;
   lang?: Language;
+  name?: string;
+  mime?: string;
 }
 
 const KNOWN_LANGS: readonly Language[] = [
@@ -131,6 +135,20 @@ export function Receive({ snippetId }: { snippetId: string }) {
       const envelope = base64Decode(body.ciphertext);
       const { iv, ciphertext } = unpackEnvelope(envelope);
       const plaintextBytes = await crypto.decrypt(key, ciphertext, iv);
+
+      // File share: keep the raw bytes, pull name+mime out of the
+      // encrypted metadata, wrap as a Blob with the original MIME so
+      // downloads keep their type and image previews work.
+      if (body.content_type === "file") {
+        const meta = await decryptMetadata(crypto, key, body.encrypted_metadata);
+        const name = typeof meta?.name === "string" ? meta.name : "download";
+        const mime =
+          typeof meta?.mime === "string" ? meta.mime : "application/octet-stream";
+        const blob = new Blob([plaintextBytes], { type: mime });
+        setState({ kind: "ok-file", blob, name, mime });
+        return;
+      }
+
       const text = new TextDecoder().decode(plaintextBytes);
 
       // URL share: skip the metadata decrypt; the URL is the content.
@@ -151,24 +169,13 @@ export function Receive({ snippetId }: { snippetId: string }) {
       // recoverable even without the metadata, so a partial decrypt
       // shouldn't surface as a hard error.
       let lang: Language | null = null;
-      if (body.content_type === "code" && typeof body.encrypted_metadata === "string") {
-        try {
-          const metaEnvelope = base64Decode(body.encrypted_metadata);
-          const metaUnpacked = unpackEnvelope(metaEnvelope);
-          const metaBytes = await crypto.decrypt(
-            key,
-            metaUnpacked.ciphertext,
-            metaUnpacked.iv,
-          );
-          const meta = JSON.parse(new TextDecoder().decode(metaBytes)) as MetadataPayload;
-          if (
-            typeof meta.lang === "string" &&
-            (KNOWN_LANGS as readonly string[]).includes(meta.lang)
-          ) {
-            lang = meta.lang;
-          }
-        } catch {
-          /* metadata decrypt or parse failed — render unhighlighted */
+      if (body.content_type === "code") {
+        const meta = await decryptMetadata(crypto, key, body.encrypted_metadata);
+        if (
+          typeof meta?.lang === "string" &&
+          (KNOWN_LANGS as readonly string[]).includes(meta.lang)
+        ) {
+          lang = meta.lang;
         }
       }
 
@@ -200,6 +207,8 @@ export function Receive({ snippetId }: { snippetId: string }) {
       return <OkCard text={state.text} lang={state.lang} />;
     case "ok-url":
       return <UrlOkCard url={state.url} />;
+    case "ok-file":
+      return <FileOkCard blob={state.blob} name={state.name} mime={state.mime} />;
     case "gone":
       return <GoneCard reason={state.reason} />;
     case "not-found":
@@ -220,6 +229,25 @@ function readKeyFromFragment(): string | null {
 async function safeJson<T>(response: Response): Promise<T | null> {
   try {
     return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+// Decrypt + parse the encrypted_metadata envelope. Returns ``null`` on
+// any failure (missing field, decrypt error, JSON parse error) — the
+// caller falls back to defaults rather than failing the whole receive.
+async function decryptMetadata(
+  cryptoMod: typeof import("@/lib/crypto/client"),
+  key: Uint8Array,
+  encoded: string | undefined,
+): Promise<MetadataPayload | null> {
+  if (typeof encoded !== "string") return null;
+  try {
+    const envelope = base64Decode(encoded);
+    const { iv, ciphertext } = unpackEnvelope(envelope);
+    const bytes = await cryptoMod.decrypt(key, ciphertext, iv);
+    return JSON.parse(new TextDecoder().decode(bytes)) as MetadataPayload;
   } catch {
     return null;
   }

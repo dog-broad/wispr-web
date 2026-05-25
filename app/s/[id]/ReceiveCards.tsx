@@ -157,6 +157,100 @@ function HighlightedCode({ lang, text }: { lang: Language; text: string }) {
   );
 }
 
+// ----- OK (decrypted file) -------------------------------------------
+
+export function FileOkCard({
+  blob,
+  name,
+  mime,
+}: {
+  blob: Blob;
+  name: string;
+  mime: string;
+}) {
+  // The object URL must outlive the user's click on the download link
+  // but get revoked on unmount to release the browser-side allocation.
+  // useMemo so a re-render doesn't churn through new URLs.
+  const url = useObjectUrl(blob);
+  const isImage = mime.startsWith("image/");
+
+  return (
+    <Shell
+      accent="moss"
+      mascot="success"
+      badge={
+        <>
+          <PixelIcon name="file" size={12} />
+          decrypted · file
+        </>
+      }
+      heading="A file for you."
+      body={
+        <div className="flex flex-col gap-3 border-[3px] border-[var(--border)] bg-[var(--bg-sunk)] p-4">
+          <div className="flex items-center gap-3">
+            <PixelIcon name="file" size={24} />
+            <div className="min-w-0 flex-1">
+              <p className="break-words font-[var(--font-body)] text-[16px] font-semibold">
+                {name}
+              </p>
+              <p className="num font-[var(--font-mono)] text-[12px] opacity-70">
+                {formatBytes(blob.size)} · {mime}
+              </p>
+            </div>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {isImage && url !== null && (
+            <img
+              src={url}
+              alt={name}
+              className="pixel max-h-[360px] w-full border-[2px] border-[var(--border)] object-contain"
+            />
+          )}
+        </div>
+      }
+      actions={
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            {url !== null && (
+              <a
+                href={url}
+                download={name}
+                className="pixel-press inline-flex h-12 items-center gap-2 border-[3px] border-[var(--color-navy)] bg-[var(--color-pink)] px-5 font-[var(--font-body)] text-[16px] font-semibold text-[var(--color-navy)] shadow-[4px_4px_0_0_var(--color-navy)]"
+              >
+                <PixelIcon name="download" size={16} />
+                Download
+              </a>
+            )}
+          </div>
+          <p className="font-[var(--font-body)] text-[14px] opacity-70">
+            Self-destructs when you leave this page.
+          </p>
+        </div>
+      }
+    />
+  );
+}
+
+function useObjectUrl(blob: Blob): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const next = URL.createObjectURL(blob);
+    setUrl(next);
+    return () => {
+      URL.revokeObjectURL(next);
+      setUrl(null);
+    };
+  }, [blob]);
+  return url;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0)} KiB`;
+  return `${(kb / 1024).toFixed(1)} MiB`;
+}
+
 // ----- OK (decrypted URL) --------------------------------------------
 
 type UrlPreviewState =
