@@ -9,7 +9,7 @@ import { WispMascot } from "@/components/pixel/WispMascot";
 import { createPair } from "@/lib/api/pair";
 import type { CreatePairResponse } from "@/lib/api/pair";
 import { env } from "@/lib/env";
-import { PairSession, type PairPhase } from "@/lib/pair/session";
+import { PairSession, type PairFailure, type PairPhase } from "@/lib/pair/session";
 
 // PIN-issuance state machine. The session-connection state machine
 // lives in ``SessionState`` and overlays this — the PIN may have been
@@ -24,7 +24,7 @@ type SessionState =
   | { kind: "idle" }
   | { kind: "connecting"; phase: PairPhase }
   | { kind: "connected"; sas: string }
-  | { kind: "failed"; reason: string };
+  | { kind: "failed"; failure: PairFailure };
 
 const TICK_INTERVAL_MS = 1000;
 
@@ -109,8 +109,8 @@ export function PairSender() {
         onConnected: ({ sas }) => {
           setSession({ kind: "connected", sas });
         },
-        onFailed: (reason) => {
-          setSession({ kind: "failed", reason });
+        onFailed: (failure) => {
+          setSession({ kind: "failed", failure });
         },
       },
     );
@@ -152,7 +152,7 @@ export function PairSender() {
 
 function bannerFromSession(session: SessionState): ConnectBannerState {
   if (session.kind === "connected") return { kind: "connected", sas: session.sas };
-  if (session.kind === "failed") return { kind: "failed", reason: session.reason };
+  if (session.kind === "failed") return { kind: "failed", failure: session.failure };
   return { kind: "idle" };
 }
 
