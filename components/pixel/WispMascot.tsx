@@ -30,61 +30,60 @@ export interface WispMascotProps {
 type Row = readonly [y: number, x0: number, x1: number];
 
 const CREAM_ROWS: readonly Row[] = [
-  // Rounder dome — narrower top (6 wide) with three rows of +2 widening
-  // up front, then +1 to settle into max width. Front-loading the
-  // widening curve makes the dome bulge outward near the top instead of
-  // climbing diagonally like a triangle.
+  // Rounder dome — narrow 6-wide top, three rows of +2 widening up front
+  // then taper to +1.
   [1, 13, 18], // 6
   [2, 11, 20], // 10 (+2)
   [3, 9, 22], // 14 (+2)
   [4, 7, 24], // 18 (+2)
   [5, 6, 25], // 20 (+1)
   [6, 5, 26], // 22 (+1)
-  [7, 4, 27], // 24 (+1)
-  // body — 24 wide, flat-sided
-  [8, 4, 27],
-  [9, 4, 27],
-  [10, 4, 27],
-  [11, 4, 27],
-  [12, 4, 27],
-  [13, 4, 27],
-  [14, 4, 27],
-  [15, 4, 27],
-  [16, 4, 27],
-  [17, 4, 27],
-  [18, 4, 27],
+  [7, 4, 27], // 24 (+1) — face starts
+  [8, 4, 27], // 24 — eye row
+  // Belly bulge — body widens out PAST the dome max (24 → 26) so the
+  // silhouette reads as an oval, not a tube. Cream at cols 3..28 here.
+  [9, 3, 28], // 26 (+1 each)
+  [10, 3, 28],
+  [11, 3, 28],
+  [12, 3, 28],
+  [13, 3, 28],
+  [14, 3, 28],
+  [15, 3, 28],
+  [16, 3, 28],
+  [17, 3, 28],
+  // un-bulge
+  [18, 4, 27], // 24
   [19, 4, 27],
-  [20, 4, 27],
-  [21, 4, 27],
-  [22, 4, 27],
-  [23, 4, 27],
-  [24, 4, 27], // last full-width row
-  // Shallow 1-row scallop — four 4-wide humps with flat caps below.
-  // No droplet tips dangling beneath; the bottom edge reads as a gentle
-  // wave rather than four little feet.
-  [25, 5, 8],
-  [25, 11, 14],
-  [25, 17, 20],
-  [25, 23, 26],
+  // taper toward scallops
+  [20, 5, 26], // 22
+  [21, 5, 26],
+  [22, 6, 25], // 20 — last body row, last row before scallops
+  // Three scallop humps on the 20-wide bottom, 4 wide each with a 4-col
+  // gap between. Valleys (gaps between humps) are navy-filled so the
+  // body's bottom edge stays closed.
+  [23, 6, 9],
+  [23, 14, 17],
+  [23, 22, 25],
 ];
 
 const NAVY_EXTRAS: readonly { x: number; y: number; w?: number }[] = [
   // top cap matching the 6-wide y=1 cream
   { x: 13, y: 0, w: 6 },
-  // dome widening bridges (the three +2 rows leave a 1-px diagonal gap
-  // per side that the row-outline rects can't close on their own)
+  // dome widening bridges (three +2 rows)
   { x: 11, y: 1 },
   { x: 20, y: 1 },
   { x: 9, y: 2 },
   { x: 22, y: 2 },
   { x: 7, y: 3 },
   { x: 24, y: 3 },
-  // flat caps beneath each scallop hump — give the bottom a closed,
-  // slightly-wavy edge without protruding droplet tips
-  { x: 5, y: 26, w: 4 },
-  { x: 11, y: 26, w: 4 },
-  { x: 17, y: 26, w: 4 },
-  { x: 23, y: 26, w: 4 },
+  // valley fills between scallop humps — close the body's bottom edge
+  // where humps don't continue cream
+  { x: 11, y: 23, w: 2 },
+  { x: 19, y: 23, w: 2 },
+  // flat caps beneath each hump
+  { x: 6, y: 24, w: 4 },
+  { x: 14, y: 24, w: 4 },
+  { x: 22, y: 24, w: 4 },
 ];
 
 export function WispMascot({
@@ -153,10 +152,13 @@ function Body({ state, animate }: { state: WispState; animate: boolean }) {
         />
       ))}
 
-      {/* subtle right-side shading for sheet-ghost depth */}
-      <rect x="23" y="3" width="1" height="4" fill={creamShade} opacity="0.55" />
-      <rect x="24" y="5" width="1" height="18" fill={creamShade} opacity="0.45" />
-      <rect x="25" y="8" width="1" height="14" fill={creamShade} opacity="0.35" />
+      {/* subtle right-side shading — follows the new oval silhouette,
+          inset 1 px from the cream edge so the curve reads as volume */}
+      <rect x="22" y="3" width="1" height="3" fill={creamShade} opacity="0.5" />
+      <rect x="25" y="6" width="1" height="3" fill={creamShade} opacity="0.45" />
+      <rect x="27" y="9" width="1" height="9" fill={creamShade} opacity="0.4" />
+      <rect x="26" y="18" width="1" height="2" fill={creamShade} opacity="0.4" />
+      <rect x="25" y="20" width="1" height="3" fill={creamShade} opacity="0.35" />
 
       {/* forehead shine */}
       <rect x="11" y="3" width="1" height="1" fill={creamShine} />
