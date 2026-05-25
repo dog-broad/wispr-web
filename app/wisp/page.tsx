@@ -115,8 +115,8 @@ export default function WispPreviewPage() {
                   <div
                     className="relative"
                     style={{
-                      width: 192,
-                      height: 192,
+                      width: 256,
+                      height: 256,
                       backgroundImage: `
                         repeating-linear-gradient(0deg, transparent 0 8px, color-mix(in srgb, var(--color-pink) 25%, transparent) 8px 9px),
                         repeating-linear-gradient(90deg, transparent 0 8px, color-mix(in srgb, var(--color-pink) 25%, transparent) 8px 9px)
@@ -143,14 +143,17 @@ export default function WispPreviewPage() {
           </h2>
           <PixelCard variant="default" className="mt-4">
             <ul className="grid grid-cols-1 gap-2 p-4 font-[var(--font-body)] text-[14px] sm:grid-cols-2">
-              <li><strong>Dome cap:</strong> rows 1–5, cream widens from 6 to 14 px.</li>
-              <li><strong>Chest:</strong> rows 6–13, full 14-wide trunk.</li>
-              <li><strong>Underbelly:</strong> rows 14–16 taper 12 → 10 → 6.</li>
-              <li><strong>Wisp-tail:</strong> rows 17–20, narrows 4 → 1 and curls right.</li>
-              <li><strong>Eyes:</strong> 2×2 irises at (8,8) and (14,8) with white sparkle and tinted drop-shadow.</li>
-              <li><strong>Blush:</strong> 1 px at (6,10) and (17,10), soft halo at row 11.</li>
-              <li><strong>Forehead shine:</strong> two soft creams just inside the dome.</li>
-              <li><strong>Hand:</strong> accessory anchor at cols 17–23, rows 9–15.</li>
+              <li><strong>Canvas:</strong> 32×32 viewBox, scale 8 = one grid square per pixel.</li>
+              <li><strong>Dome:</strong> rows 0–7, navy cap at y=0 then cream widens 8 → 24.</li>
+              <li><strong>Face:</strong> rows 8–15, cream 24-wide trunk.</li>
+              <li><strong>Eyes:</strong> 5×5 navy irises at (7,8) and (20,8); 2×2 white sparkle upper-left, 1×1 sparkle lower-right. Sparkles drift on a 5 s loop.</li>
+              <li><strong>Blush:</strong> 2×2 pink ovals at (4,11) and (26,11) with a brighter centre pixel.</li>
+              <li><strong>Mouth:</strong> rows 13–14, state-dependent shape.</li>
+              <li><strong>Arms:</strong> rows 16–17, silhouette flares to 28 wide.</li>
+              <li><strong>Body:</strong> rows 18–24, back to 24 wide.</li>
+              <li><strong>Skirt:</strong> rows 25–27, four scallop humps with 1-px droplet tips and rounded caps at y=28.</li>
+              <li><strong>Accessory zone:</strong> cols 19–31, rows 1–14 — each state animates independently (plane translates, link rocks, pin pips cycle, pair arcs ripple, wave hand bobs).</li>
+              <li><strong>Blink:</strong> 4 s loop, 3 frames (open → half-lid → closed → half-lid → open).</li>
             </ul>
           </PixelCard>
         </section>
