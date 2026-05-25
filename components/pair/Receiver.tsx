@@ -112,7 +112,11 @@ export function Receiver({ initialPin }: ReceiverProps) {
 
           {phase.kind === "connected" ? (
             <>
-              <ExchangeLog messages={exchange.transcript} onSend={exchange.sendText} />
+              <ExchangeLog
+                messages={exchange.transcript}
+                onSend={exchange.sendText}
+                onAttach={exchange.sendFile}
+              />
               <div className="flex justify-center">
                 <PixelButton
                   variant="outline"
