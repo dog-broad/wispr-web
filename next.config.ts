@@ -29,7 +29,13 @@ const SECURITY_HEADERS = [
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self'",
       "img-src 'self' data: blob:",
-      "connect-src 'self' wss://api.wispr.rushyendra.dev https://api.wispr.rushyendra.dev",
+      // ``'self'`` covers the same-origin /wispr-api/* HTTP path (which
+      // Next rewrites to the upstream API). The wss:// entries name the
+      // hosts the browser opens raw WebSockets to — Next rewrites can't
+      // proxy WS upgrades, so each WS-base hostname must be listed
+      // explicitly. wispr-api.duckdns.org is the primary path; the
+      // api.wispr.rushyendra.dev entry stays as a transitional fallback.
+      "connect-src 'self' wss://wispr-api.duckdns.org wss://api.wispr.rushyendra.dev https://api.wispr.rushyendra.dev",
       "worker-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
