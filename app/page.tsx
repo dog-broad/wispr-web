@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Header } from "@/components/pixel/Header";
 import { Footer } from "@/components/pixel/Footer";
 import { Composer } from "@/components/composer/Composer";
@@ -20,7 +21,7 @@ export default function HomePage() {
           <div className="anim-drift-in relative z-10 flex flex-col items-start gap-4 md:gap-6">
             <PixelBadge tone="info">
               <PixelIcon name="zap" size={12} />
-              <span className="num">v1</span> in flight · link-foundation
+              <span className="num">v1</span> in flight · pair-and-content
             </PixelBadge>
 
             <h1 className="font-[var(--font-display)] text-[40px] leading-[1] tracking-tight md:text-[56px] lg:text-[64px]">
@@ -40,13 +41,20 @@ export default function HomePage() {
         {/* Composer */}
         <Composer />
 
-        {/* Pair affordance */}
+        {/* Pair affordance — link "Or pair a device live" to /pair
+            (sender) and the "Got a PIN?" row to /r (receiver). */}
         <div className="mt-4 flex flex-col items-stretch gap-3 md:flex-row md:items-center md:justify-between">
-          <p className="inline-flex items-center gap-2 font-[var(--font-body)] text-[14px]">
+          <Link
+            href="/pair"
+            className="inline-flex items-center gap-2 font-[var(--font-body)] text-[14px] underline-offset-4 hover:underline"
+          >
             <PixelIcon name="devices" size={16} />
             Or pair a device live →
-          </p>
-          <div className="inline-flex items-center gap-2 font-[var(--font-mono)] text-[16px]">
+          </Link>
+          <Link
+            href="/r"
+            className="inline-flex items-center gap-2 font-[var(--font-mono)] text-[16px] underline-offset-4 hover:underline"
+          >
             <span className="opacity-60">Got a PIN?</span>
             <PinSlots />
             <span aria-hidden className="opacity-60">
@@ -55,7 +63,7 @@ export default function HomePage() {
             <span className="inline-flex items-center gap-1 opacity-90">
               <PixelIcon name="grid" size={16} /> scan
             </span>
-          </div>
+          </Link>
         </div>
 
         {/* Mode strip */}

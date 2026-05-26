@@ -33,13 +33,23 @@ export function Receiver({ initialPin }: ReceiverProps) {
   );
   const [phase, setPhase] = useState<Phase>({ kind: "entering" });
   const sessionRef = useRef<PairSession | null>(null);
-  const exchange = usePairExchange();
+  // Destructure for stable useCallback references — see PairSender for
+  // the same fix and the bug it prevents (effect re-fire per render
+  // because the wrapper object identity changes).
+  const {
+    transcript,
+    attach,
+    detach,
+    resetTranscript,
+    sendText,
+    sendFile,
+  } = usePairExchange();
 
   const startSession = useCallback(
     (completed: string) => {
       setPhase({ kind: "connecting", pin: completed, sessionPhase: "opening_signaling" });
       sessionRef.current?.close("retrying");
-      exchange.detach();
+      detach();
       const session = PairSession.createReceiver(
         env.apiBaseUrl,
         { pin: completed },
@@ -52,7 +62,7 @@ export function Receiver({ initialPin }: ReceiverProps) {
           },
           onConnected: ({ sas, sessionKey }) => {
             setPhase({ kind: "connected", pin: completed, sas });
-            exchange.attach(session, sessionKey);
+            attach(session, sessionKey);
           },
           onFailed: (failure) => {
             setPhase({ kind: "failed", pin: completed, failure });
@@ -61,7 +71,7 @@ export function Receiver({ initialPin }: ReceiverProps) {
       );
       sessionRef.current = session;
     },
-    [exchange],
+    [attach, detach],
   );
 
   // If the URL arrived already-filled, kick the session immediately so
@@ -75,11 +85,11 @@ export function Receiver({ initialPin }: ReceiverProps) {
   // Tear down the session if the component unmounts.
   useEffect(() => {
     return () => {
-      exchange.detach();
+      detach();
       sessionRef.current?.close("unmounted");
       sessionRef.current = null;
     };
-  }, [exchange]);
+  }, [detach]);
 
   const onComplete = useCallback(
     (completed: string) => {
@@ -91,11 +101,11 @@ export function Receiver({ initialPin }: ReceiverProps) {
   const reset = useCallback(() => {
     sessionRef.current?.close("reset");
     sessionRef.current = null;
-    exchange.detach();
-    exchange.resetTranscript();
+    detach();
+    resetTranscript();
     setPin(emptyPin(PIN_LENGTH));
     setPhase({ kind: "entering" });
-  }, [exchange]);
+  }, [detach, resetTranscript]);
 
   return (
     <section className="relative">
@@ -113,9 +123,9 @@ export function Receiver({ initialPin }: ReceiverProps) {
           {showExchangeSurface(phase) ? (
             <>
               <ExchangeLog
-                messages={exchange.transcript}
-                onSend={exchange.sendText}
-                onAttach={exchange.sendFile}
+                messages={transcript}
+                onSend={sendText}
+                onAttach={sendFile}
                 disabled={phase.kind !== "connected"}
               />
               <div className="flex justify-center">
