@@ -37,12 +37,30 @@ function deriveWsBase(httpBase: string): string {
   // is better than silently routing to the wrong host.
   return httpBase;
 }
-const WS_BASE =
+const BUILD_WS_BASE =
   process.env.NEXT_PUBLIC_API_WS_BASE_URL || deriveWsBase(HTTP_BASE);
+
+// Origin-aware WS base: when the page is loaded from the custom-domain
+// frontend (anything under rushyendra.dev), keep WS traffic on the
+// matching api.wispr.rushyendra.dev host so that hostname stays in
+// active use. Anywhere else (platform-provided aliases, restricted-
+// network fallback) the build-time value applies.
+//
+// SSR has no window, so this branch is silently a no-op there — the
+// env object below resolves to the build-time value on the server and
+// to the runtime value in the browser. Since the WS object is only
+// constructed in the browser, that asymmetry is harmless.
+let RUNTIME_WS_BASE = BUILD_WS_BASE;
+if (typeof window !== "undefined") {
+  const host = window.location.hostname;
+  if (host === "wispr.rushyendra.dev" || host.endsWith(".rushyendra.dev")) {
+    RUNTIME_WS_BASE = "wss://api.wispr.rushyendra.dev";
+  }
+}
 
 export const env = Object.freeze({
   apiBaseUrl: trimTrailingSlash(HTTP_BASE),
-  apiWsBaseUrl: trimTrailingSlash(WS_BASE),
+  apiWsBaseUrl: trimTrailingSlash(RUNTIME_WS_BASE),
 });
 
 export type Env = typeof env;
