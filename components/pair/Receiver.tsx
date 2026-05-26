@@ -51,7 +51,7 @@ export function Receiver({ initialPin }: ReceiverProps) {
       sessionRef.current?.close("retrying");
       detach();
       const session = PairSession.createReceiver(
-        env.apiBaseUrl,
+        env.apiWsBaseUrl,
         { pin: completed },
         {
           onPhase: (sessionPhase) => {

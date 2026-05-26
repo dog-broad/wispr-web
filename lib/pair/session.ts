@@ -109,7 +109,7 @@ export class PairSession {
 
   private constructor(
     role: "sender" | "receiver",
-    apiBaseUrl: string,
+    apiWsBaseUrl: string,
     connect: ConnectOptions,
     events: PairSessionEvents,
   ) {
@@ -117,7 +117,7 @@ export class PairSession {
     this.events = events;
     this.pc = new RTCPeerConnection({ iceServers: DEFAULT_ICE_SERVERS });
     this.setupPeerConnection();
-    this.signaling = openPairSignaling(apiBaseUrl, connect, {
+    this.signaling = openPairSignaling(apiWsBaseUrl, connect, {
       onOpen: () => this.handleSignalingOpen(),
       onEnvelope: (env) => this.handleEnvelope(env),
       onClose: () => this.fail("signaling_closed"),
@@ -126,32 +126,33 @@ export class PairSession {
   }
 
   static createSender(
-    apiBaseUrl: string,
+    apiWsBaseUrl: string,
     options: { pin: string; senderToken: string },
     events: PairSessionEvents,
   ): PairSession {
     return new PairSession(
       "sender",
-      apiBaseUrl,
+      apiWsBaseUrl,
       { role: "sender", pin: options.pin, senderToken: options.senderToken },
       events,
     );
   }
 
   static createReceiver(
-    apiBaseUrl: string,
+    apiWsBaseUrl: string,
     options: { pin: string },
     events: PairSessionEvents,
   ): PairSession {
     const session = new PairSession(
       "receiver",
-      apiBaseUrl,
+      apiWsBaseUrl,
       { role: "receiver" },
       events,
     );
     // The receiver redeems the PIN as its first frame. The signaling
-    // wrapper queues this until the socket opens; it lands on the server
-    // immediately on open.
+    // wrapper queues this until the socket opens (see signaling.ts),
+    // so this synchronous send happens safely while the WS is still
+    // in the CONNECTING state.
     session.signaling.send({ op: "redeem", pin: options.pin });
     return session;
   }
