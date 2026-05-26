@@ -35,7 +35,19 @@ export function PairSender() {
   const [session, setSession] = useState<SessionState>({ kind: "idle" });
   const tickRef = useRef<number | null>(null);
   const sessionRef = useRef<PairSession | null>(null);
-  const exchange = usePairExchange();
+  // Destructure the hook return so the effect below can depend on the
+  // stable useCallback references rather than the wrapper object —
+  // which is a fresh literal every render and would otherwise re-fire
+  // the effect on every countdown tick, churning a new
+  // RTCPeerConnection each second until Chrome's per-tab cap hits.
+  const {
+    transcript,
+    attach,
+    detach,
+    resetTranscript,
+    sendText,
+    sendFile,
+  } = usePairExchange();
 
   const issuePair = useCallback(async (controller: AbortController) => {
     setIssue({ kind: "loading" });
@@ -91,12 +103,15 @@ export function PairSender() {
     };
   }, [issue.kind]);
 
-  // Spawn one PairSession per issued PIN. The session owns its own
-  // teardown; the effect closes it when the PIN changes or the
-  // component unmounts.
+  // Spawn one PairSession per issued PIN. The dep is the pair OBJECT
+  // (stable until a new PIN is issued), not the whole ``issue`` state
+  // (which gets a fresh top-level reference every countdown tick).
+  // ``attach`` / ``detach`` are useCallback-stable inside the hook,
+  // so listing them in the deps doesn't cause re-fires.
+  const currentPair = issue.kind === "waiting" ? issue.pair : null;
   useEffect(() => {
-    if (issue.kind !== "waiting") return;
-    const { pin, senderToken } = issue.pair;
+    if (currentPair === null) return;
+    const { pin, senderToken } = currentPair;
     setSession({ kind: "connecting", phase: "opening_signaling" });
     const s = PairSession.createSender(
       env.apiBaseUrl,
@@ -111,7 +126,7 @@ export function PairSender() {
         },
         onConnected: ({ sas, sessionKey }) => {
           setSession({ kind: "connected", sas });
-          exchange.attach(s, sessionKey);
+          attach(s, sessionKey);
         },
         onFailed: (failure) => {
           setSession({ kind: "failed", failure });
@@ -120,19 +135,19 @@ export function PairSender() {
     );
     sessionRef.current = s;
     return () => {
-      exchange.detach();
+      detach();
       s.close("issue_changed");
       sessionRef.current = null;
     };
-  }, [issue, exchange]);
+  }, [currentPair, attach, detach]);
 
   const newPin = useCallback(() => {
     sessionRef.current?.close("new_pin_requested");
     setSession({ kind: "idle" });
-    exchange.resetTranscript();
+    resetTranscript();
     const controller = new AbortController();
     void issuePair(controller);
-  }, [issuePair, exchange]);
+  }, [issuePair, resetTranscript]);
 
   return (
     <section className="relative">
@@ -150,9 +165,9 @@ export function PairSender() {
           {showExchangeSurface(session) ? (
             <>
               <ExchangeLog
-                messages={exchange.transcript}
-                onSend={exchange.sendText}
-                onAttach={exchange.sendFile}
+                messages={transcript}
+                onSend={sendText}
+                onAttach={sendFile}
                 disabled={session.kind !== "connected"}
               />
               <div className="flex justify-center">
