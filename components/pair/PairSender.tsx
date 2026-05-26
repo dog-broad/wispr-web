@@ -114,7 +114,7 @@ export function PairSender() {
     const { pin, senderToken } = currentPair;
     setSession({ kind: "connecting", phase: "opening_signaling" });
     const s = PairSession.createSender(
-      env.apiBaseUrl,
+      env.apiWsBaseUrl,
       { pin, senderToken },
       {
         onPhase: (phase) => {

@@ -44,8 +44,9 @@ export interface WatchClient {
 }
 
 export function openWatch(snippetId: string, handlers: WatchHandlers): WatchClient {
-  const base = env.apiBaseUrl.replace(/^http/, "ws");
-  const ws = new WebSocket(`${base}/ws/snippet/${encodeURIComponent(snippetId)}/watch`);
+  const ws = new WebSocket(
+    `${env.apiWsBaseUrl}/ws/snippet/${encodeURIComponent(snippetId)}/watch`,
+  );
 
   ws.addEventListener("open", () => handlers.onOpen?.());
   ws.addEventListener("error", (event) => handlers.onError?.(event));
