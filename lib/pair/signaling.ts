@@ -52,16 +52,33 @@ export interface SignalingClient {
 }
 
 /** Open a signaling socket. The caller supplies handlers up front so
- *  no events are missed between construction and the first message. */
+ *  no events are missed between construction and the first message.
+ *
+ *  Sends issued before the socket has finished its handshake are
+ *  queued and flushed on ``open``. The receiver factory in
+ *  ``PairSession`` exercises this path — it ships ``redeem`` as the
+ *  very first frame, synchronously, immediately after the ``new
+ *  WebSocket()`` returns, while the WS is still in CONNECTING state.
+ *  Calling ``ws.send`` in that window throws ``InvalidStateError``
+ *  per the spec, so the queue is load-bearing for the receiver flow. */
 export function openPairSignaling(
-  apiBaseUrl: string,
+  apiWsBaseUrl: string,
   connect: ConnectOptions,
   handlers: SignalingHandlers = {},
 ): SignalingClient {
-  const url = buildUrl(apiBaseUrl, connect);
+  const url = buildUrl(apiWsBaseUrl, connect);
   const ws = new WebSocket(url);
+  const pending: ClientEnvelope[] = [];
 
-  ws.addEventListener("open", () => handlers.onOpen?.());
+  ws.addEventListener("open", () => {
+    while (pending.length > 0) {
+      const envelope = pending.shift();
+      if (envelope !== undefined) {
+        ws.send(JSON.stringify(envelope));
+      }
+    }
+    handlers.onOpen?.();
+  });
   ws.addEventListener("error", (e) => handlers.onError?.(e));
   ws.addEventListener("close", (e) => handlers.onClose?.(e));
   ws.addEventListener("message", (e) => {
@@ -79,7 +96,13 @@ export function openPairSignaling(
 
   return {
     send(envelope: ClientEnvelope): void {
-      ws.send(JSON.stringify(envelope));
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(envelope));
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        pending.push(envelope);
+      }
+      // CLOSING / CLOSED: drop the frame; the session's close
+      // handlers surface the failure to the page.
     },
     close(code?: number, reason?: string): void {
       ws.close(code, reason);
@@ -90,16 +113,15 @@ export function openPairSignaling(
   };
 }
 
-function buildUrl(apiBaseUrl: string, connect: ConnectOptions): string {
-  const base = apiBaseUrl.replace(/^http/, "ws");
+function buildUrl(apiWsBaseUrl: string, connect: ConnectOptions): string {
   if (connect.role === "sender") {
     const params = new URLSearchParams({
       pin: connect.pin,
       sender_token: connect.senderToken,
     });
-    return `${base}/ws/pair?${params.toString()}`;
+    return `${apiWsBaseUrl}/ws/pair?${params.toString()}`;
   }
-  return `${base}/ws/pair`;
+  return `${apiWsBaseUrl}/ws/pair`;
 }
 
 function isServerEnvelope(value: unknown): value is ServerEnvelope {
