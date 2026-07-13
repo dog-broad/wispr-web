@@ -18,7 +18,7 @@ export function Header({ className }: { className?: string }) {
 
       <nav className="hidden items-center gap-2 md:flex">
         <NavLink href="/about">About</NavLink>
-        <NavLink href="/about" variant="primary">
+        <NavLink href="/login" variant="primary">
           Sign in
         </NavLink>
       </nav>
@@ -35,7 +35,7 @@ function NavLink({
   children,
   variant = "ghost",
 }: {
-  href: "/" | "/about";
+  href: "/" | "/about" | "/login";
   children: React.ReactNode;
   variant?: "ghost" | "primary";
 }) {

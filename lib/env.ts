@@ -58,9 +58,15 @@ if (typeof window !== "undefined") {
   }
 }
 
+// Cloudflare Turnstile site key (public). When empty, the challenge widget is
+// omitted and requests carry no token — the API bypasses the check in that
+// case (local dev). Must be a literal env read for Next to inline it.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+
 export const env = Object.freeze({
   apiBaseUrl: trimTrailingSlash(HTTP_BASE),
   apiWsBaseUrl: trimTrailingSlash(RUNTIME_WS_BASE),
+  turnstileSiteKey: TURNSTILE_SITE_KEY,
 });
 
 export type Env = typeof env;
