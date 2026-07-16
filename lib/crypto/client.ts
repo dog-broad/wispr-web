@@ -7,11 +7,15 @@
 // tab boundary would be a leak.
 
 import type {
+  ClearKeysResult,
   DecryptResult,
+  DeriveKeysResult,
   EncryptResult,
   GenerateKeyResult,
+  UnwrapResult,
   WorkerRequest,
   WorkerResponse,
+  WrapResult,
 } from "./types";
 
 type PendingResolve = (value: WorkerResponse) => void;
@@ -80,4 +84,35 @@ export async function decrypt(
 ): Promise<Uint8Array> {
   const response = await send({ op: "decrypt", key, ciphertext, iv });
   return unwrap<DecryptResult>(response, "decrypt").plaintext;
+}
+
+/**
+ * Derive the passphrase chains: the master KEK is held inside the worker; the
+ * returned auth token is sent to the server (setup) or discarded (prompt).
+ */
+export async function deriveKeys(
+  passphrase: string,
+  authSalt: Uint8Array,
+  masterSalt: Uint8Array,
+): Promise<Uint8Array> {
+  const response = await send({ op: "deriveKeys", passphrase, authSalt, masterSalt });
+  return unwrap<DeriveKeysResult>(response, "deriveKeys").authToken;
+}
+
+/** Wrap a per-snippet DEK with the worker-held master KEK. */
+export async function wrapDek(dek: Uint8Array): Promise<WrapResult> {
+  const response = await send({ op: "wrap", dek });
+  return unwrap<WrapResult>(response, "wrap");
+}
+
+/** Unwrap a DEK with the worker-held master KEK. */
+export async function unwrapDek(wrapped: Uint8Array, iv: Uint8Array): Promise<Uint8Array> {
+  const response = await send({ op: "unwrap", wrapped, iv });
+  return unwrap<UnwrapResult>(response, "unwrap").dek;
+}
+
+/** Drop the master KEK from worker memory (lock / logout). */
+export async function clearKeys(): Promise<void> {
+  const response = await send({ op: "clearKeys" });
+  unwrap<ClearKeysResult>(response, "clearKeys");
 }

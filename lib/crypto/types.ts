@@ -11,16 +11,35 @@ export type WorkerRequest =
       key: Uint8Array;
       ciphertext: Uint8Array;
       iv: Uint8Array;
-    };
+    }
+  | {
+      id: number;
+      op: "deriveKeys";
+      passphrase: string;
+      authSalt: Uint8Array;
+      masterSalt: Uint8Array;
+    }
+  | { id: number; op: "wrap"; dek: Uint8Array }
+  | { id: number; op: "unwrap"; wrapped: Uint8Array; iv: Uint8Array }
+  | { id: number; op: "clearKeys" };
 
 export type GenerateKeyResult = { key: Uint8Array };
 export type EncryptResult = { ciphertext: Uint8Array; iv: Uint8Array };
 export type DecryptResult = { plaintext: Uint8Array };
+// Only the auth token leaves the worker; the master KEK stays inside it.
+export type DeriveKeysResult = { authToken: Uint8Array };
+export type WrapResult = { wrapped: Uint8Array; iv: Uint8Array };
+export type UnwrapResult = { dek: Uint8Array };
+export type ClearKeysResult = { cleared: true };
 
 export type WorkerSuccess =
   | { id: number; ok: true; op: "generateKey"; result: GenerateKeyResult }
   | { id: number; ok: true; op: "encrypt"; result: EncryptResult }
-  | { id: number; ok: true; op: "decrypt"; result: DecryptResult };
+  | { id: number; ok: true; op: "decrypt"; result: DecryptResult }
+  | { id: number; ok: true; op: "deriveKeys"; result: DeriveKeysResult }
+  | { id: number; ok: true; op: "wrap"; result: WrapResult }
+  | { id: number; ok: true; op: "unwrap"; result: UnwrapResult }
+  | { id: number; ok: true; op: "clearKeys"; result: ClearKeysResult };
 
 export type WorkerFailure = {
   id: number;
