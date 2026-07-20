@@ -4,6 +4,7 @@
 // stored and replayed. In dev the API is reached through the same-origin
 // /wispr-api rewrite (see .env.local) so the SameSite=Lax cookie is accepted.
 
+import { base64Encode } from "@/lib/crypto/encoding";
 import { env } from "@/lib/env";
 
 export class AuthError extends Error {
@@ -72,6 +73,34 @@ export async function verifyMagicLink(token: string): Promise<VerifyResult> {
     needs_passphrase_setup: boolean;
   };
   return { email: body.email, needsPassphraseSetup: body.needs_passphrase_setup };
+}
+
+/**
+ * First-time passphrase setup. Sends the client-derived auth token and the two
+ * PBKDF2 salts; the passphrase and master key never leave the browser. Throws
+ * {@link AuthError} 409 if a passphrase is already set, 401 if not signed in.
+ */
+export async function setupPassphrase(
+  authToken: Uint8Array,
+  authSalt: Uint8Array,
+  masterSalt: Uint8Array,
+): Promise<void> {
+  const response = await fetch(`${env.apiBaseUrl}/auth/setup-passphrase`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      auth_token: base64Encode(authToken),
+      auth_credential_salt: base64Encode(authSalt),
+      master_key_salt: base64Encode(masterSalt),
+    }),
+  });
+  if (!response.ok) {
+    throw new AuthError(
+      (await safeDetail(response)) ?? `${response.status} ${response.statusText}`,
+      response.status,
+    );
+  }
 }
 
 /** Invalidate the current session and clear the cookie. Idempotent. */

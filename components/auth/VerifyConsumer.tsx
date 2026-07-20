@@ -82,9 +82,12 @@ export function VerifyConsumer() {
               ? " Next, set the passphrase that protects your clips."
               : ""}
           </p>
-          <Link href="/" className="mt-5 inline-block">
+          <Link
+            href={state.result.needsPassphraseSetup ? "/setup-passphrase" : "/"}
+            className="mt-5 inline-block"
+          >
             <PixelButton variant="primary" size="md">
-              continue
+              {state.result.needsPassphraseSetup ? "set passphrase" : "continue"}
             </PixelButton>
           </Link>
         </div>
