@@ -7,6 +7,15 @@ import type { NextConfig } from "next";
 // user input into HTML, so the XSS vector is narrow; tightening to
 // nonces would require request-scoped middleware that isn't worth the
 // complexity for v1.
+//
+// Dev only: Next's Fast Refresh runtime evaluates code via eval(), which the
+// production CSP forbids. Add 'unsafe-eval' under `next dev` so the client
+// hydrates locally; production builds keep the stricter policy.
+const SCRIPT_SRC =
+  process.env.NODE_ENV === "development"
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'";
+
 const SECURITY_HEADERS = [
   {
     key: "Strict-Transport-Security",
@@ -25,7 +34,7 @@ const SECURITY_HEADERS = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      SCRIPT_SRC,
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self'",
       "img-src 'self' data: blob:",
