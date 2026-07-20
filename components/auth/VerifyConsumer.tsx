@@ -83,11 +83,11 @@ export function VerifyConsumer() {
               : ""}
           </p>
           <Link
-            href={state.result.needsPassphraseSetup ? "/setup-passphrase" : "/"}
+            href={state.result.needsPassphraseSetup ? "/setup-passphrase" : "/unlock"}
             className="mt-5 inline-block"
           >
             <PixelButton variant="primary" size="md">
-              {state.result.needsPassphraseSetup ? "set passphrase" : "continue"}
+              {state.result.needsPassphraseSetup ? "set passphrase" : "unlock"}
             </PixelButton>
           </Link>
         </div>

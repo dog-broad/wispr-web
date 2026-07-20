@@ -4,7 +4,7 @@
 // stored and replayed. In dev the API is reached through the same-origin
 // /wispr-api rewrite (see .env.local) so the SameSite=Lax cookie is accepted.
 
-import { base64Encode } from "@/lib/crypto/encoding";
+import { base64Decode, base64Encode } from "@/lib/crypto/encoding";
 import { env } from "@/lib/env";
 
 export class AuthError extends Error {
@@ -94,6 +94,56 @@ export async function setupPassphrase(
       auth_credential_salt: base64Encode(authSalt),
       master_key_salt: base64Encode(masterSalt),
     }),
+  });
+  if (!response.ok) {
+    throw new AuthError(
+      (await safeDetail(response)) ?? `${response.status} ${response.statusText}`,
+      response.status,
+    );
+  }
+}
+
+export interface SessionInfo {
+  email: string;
+  isAdmin: boolean;
+  needsPassphraseSetup: boolean;
+  masterKeyVersion: number;
+  authCredentialSalt: Uint8Array | null;
+  masterKeySalt: Uint8Array | null;
+}
+
+/** Current auth state + the PBKDF2 salts for re-derivation. Null if not signed in. */
+export async function getSession(): Promise<SessionInfo | null> {
+  const response = await fetch(`${env.apiBaseUrl}/auth/session`, { credentials: "include" });
+  if (response.status === 401) return null;
+  if (!response.ok) {
+    throw new AuthError(`${response.status} ${response.statusText}`, response.status);
+  }
+  const body = (await response.json()) as {
+    email: string;
+    is_admin: boolean;
+    needs_passphrase_setup: boolean;
+    master_key_version: number;
+    auth_credential_salt: string | null;
+    master_key_salt: string | null;
+  };
+  return {
+    email: body.email,
+    isAdmin: body.is_admin,
+    needsPassphraseSetup: body.needs_passphrase_setup,
+    masterKeyVersion: body.master_key_version,
+    authCredentialSalt: body.auth_credential_salt ? base64Decode(body.auth_credential_salt) : null,
+    masterKeySalt: body.master_key_salt ? base64Decode(body.master_key_salt) : null,
+  };
+}
+
+/** Verify the passphrase for this session. Throws {@link AuthError} 401 on mismatch. */
+export async function unlock(authToken: Uint8Array): Promise<void> {
+  const response = await fetch(`${env.apiBaseUrl}/auth/unlock`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ auth_token: base64Encode(authToken) }),
   });
   if (!response.ok) {
     throw new AuthError(
