@@ -48,11 +48,13 @@ export function PassphrasePrompt() {
       // Wrong passphrase derived a bad KEK; drop it before letting them retry.
       await clearKeys();
       setStatus("ready");
-      setError(
-        err instanceof AuthError && err.status === 401
-          ? "That passphrase doesn't match. Try again."
-          : "Couldn't unlock. Try again.",
-      );
+      if (err instanceof AuthError && err.status === 423) {
+        setError("Too many attempts — your account is locked for an hour.");
+      } else if (err instanceof AuthError && err.status === 401) {
+        setError("That passphrase doesn't match. Try again.");
+      } else {
+        setError("Couldn't unlock. Try again.");
+      }
     }
   }
 
