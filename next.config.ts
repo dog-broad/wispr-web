@@ -21,10 +21,12 @@ const SCRIPT_SRC =
 // WebSockets to — Next rewrites can't proxy WS upgrades, so each WS-base
 // hostname must be listed explicitly. wispr-api.duckdns.org is the primary
 // path; the api.wispr.rushyendra.dev entry stays as a transitional fallback.
+// The R2 wildcard lets the browser PUT/GET encrypted file chunks straight to
+// Cloudflare R2 via presigned URLs (the bytes never transit the API).
 // Dev only: also allow the local API host so pair/watch/sync WS + fetch reach
 // ws://localhost:8000 without loosening the production policy.
 const CONNECT_SRC =
-  "connect-src 'self' wss://wispr-api.duckdns.org wss://api.wispr.rushyendra.dev https://api.wispr.rushyendra.dev" +
+  "connect-src 'self' wss://wispr-api.duckdns.org wss://api.wispr.rushyendra.dev https://api.wispr.rushyendra.dev https://*.r2.cloudflarestorage.com" +
   (process.env.NODE_ENV === "development" ? " ws://localhost:8000 http://localhost:8000" : "");
 
 const SECURITY_HEADERS = [
