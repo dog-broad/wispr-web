@@ -11,9 +11,14 @@ import { openWatch, type GoneReason, type WatchEvent } from "@/lib/api/watch";
 
 export interface SentDetails {
   id: string;
+  // For a link this is the /s/{id}#k= URL; for a PIN it's the /r?pin= URL.
   url: string;
   copied: boolean;
   expiresAt: Date;
+  kind: "link" | "pin";
+  // PIN and reads ceiling are only set for kind === "pin".
+  pin?: string;
+  maxReads: number | null;
 }
 
 type WatchState =
@@ -55,7 +60,7 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
 
   const startWatch = useCallback(() => {
     if (watch.kind === "live") return;
-    setWatch({ kind: "live", readCount: 0, maxReads: 1, lastReadAt: null });
+    setWatch({ kind: "live", readCount: 0, maxReads: details.maxReads, lastReadAt: null });
     const client = openWatch(details.id, {
       onEvent: (event: WatchEvent) => {
         if (event.op === "snapshot") {
@@ -110,7 +115,7 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
       },
     });
     watchRef.current = client;
-  }, [details.id, watch.kind]);
+  }, [details.id, details.maxReads, watch.kind]);
 
   useEffect(() => {
     return () => {
@@ -130,7 +135,7 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
           <div className="flex items-center gap-3">
             <PixelBadge tone="success">
               <PixelIcon name="forward" size={12} />
-              sent via link
+              {details.kind === "pin" ? "sent via PIN" : "sent via link"}
             </PixelBadge>
             <span className="ml-auto md:hidden">
               <WispMascot state="sending" size={2} />
@@ -146,6 +151,20 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
               </span>
             )}
           </div>
+
+          {details.kind === "pin" && details.pin && (
+            <div className="flex flex-col items-center gap-1 border-[3px] border-[var(--color-purple)] bg-[var(--bg-sunk)] px-4 py-4">
+              <span className="font-[var(--font-display)] text-[12px] tracking-widest uppercase opacity-70">
+                share this PIN
+              </span>
+              <span className="num font-[var(--font-mono)] text-[64px] leading-none tracking-[0.3em]">
+                {details.pin}
+              </span>
+              <span className="font-[var(--font-body)] text-[14px] opacity-70">
+                They enter it at <span className="num">/r</span> — or scan below.
+              </span>
+            </div>
+          )}
 
           <div className="flex flex-col items-stretch gap-4 md:flex-row md:items-start">
             <div className="flex justify-center md:block">
@@ -178,8 +197,12 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
                 </p>
                 <p className="flex items-center gap-2">
                   <PixelIcon name="eye" size={14} />
-                  <span className="num font-semibold">1</span>
-                  <span className="opacity-70">read remaining</span>
+                  <span className="num font-semibold">
+                    {details.maxReads === null ? "∞" : details.maxReads}
+                  </span>
+                  <span className="opacity-70">
+                    {details.maxReads === 1 ? "read remaining" : "reads allowed"}
+                  </span>
                 </p>
               </div>
             </div>

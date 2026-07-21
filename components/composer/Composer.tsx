@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
@@ -20,6 +21,7 @@ import { env } from "@/lib/env";
 import { detectLanguage } from "@/lib/highlight/detect";
 import type { Language } from "@/lib/highlight/highlight";
 import { detectUrl } from "@/lib/url-preview/detect";
+import { useSession } from "@/lib/hooks/useSession";
 import type { SentDetails } from "./SentState";
 
 // SentState carries the QR renderer (qrcode.react) which is only needed
@@ -41,6 +43,15 @@ const LIFETIME_OPTIONS = [
   { value: 600, label: "10 min" },
   { value: 3600, label: "1 hr" },
   { value: 86400, label: "24 hr" },
+] as const;
+
+// PIN-share read ceilings. 0 is the sentinel for "unlimited within the TTL"
+// ([D-260524-11]) — mapped to null on the wire.
+const READS_OPTIONS = [
+  { value: 1, label: "1" },
+  { value: 5, label: "5" },
+  { value: 10, label: "10" },
+  { value: 0, label: "∞" },
 ] as const;
 
 // Inline-file ceiling for Link mode. PROJECT.md §10 M2: 256 KiB
@@ -68,10 +79,13 @@ export function Composer() {
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [ttlSeconds, setTtlSeconds] = useState<number>(600);
+  const [maxReads, setMaxReads] = useState<number>(1);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [passwordEnabled, setPasswordEnabled] = useState(false);
   const [password, setPassword] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { session } = useSession();
+  const signedIn = session !== null;
 
   // Content-type detection runs on every keystroke. URL takes priority
   // over language because a single-URL share gets its own rich preview
@@ -81,7 +95,7 @@ export function Composer() {
   const detectedLanguage =
     attachedFile === null && detectedUrl === null ? detectLanguage(text) : null;
 
-  const send = useCallback(async () => {
+  const send = useCallback(async (mode: "link" | "pin") => {
     if (attachedFile === null && !text.trim()) return;
     setStatus({ kind: "encrypting" });
     try {
@@ -126,24 +140,80 @@ export function Composer() {
         passwordSalt = base64Encode(salt);
       }
 
-      const body: Record<string, unknown> = {
-        share_mode: "link",
-        content_type: contentType,
-        ciphertext: base64Encode(packEnvelope(content.iv, content.ciphertext)),
-        encrypted_metadata: base64Encode(packEnvelope(meta.iv, meta.ciphertext)),
-        ttl_seconds: ttlSeconds,
-        max_reads: 1,
-      };
-      if (passwordHash !== undefined && passwordSalt !== undefined) {
-        body.password_hash = passwordHash;
-        body.password_salt = passwordSalt;
-      }
+      const ciphertextB64 = base64Encode(packEnvelope(content.iv, content.ciphertext));
+      const metadataB64 = base64Encode(packEnvelope(meta.iv, meta.ciphertext));
+      const passwordFields =
+        passwordHash !== undefined && passwordSalt !== undefined
+          ? { password_hash: passwordHash, password_salt: passwordSalt }
+          : {};
 
       setStatus({ kind: "posting" });
+
+      if (mode === "pin") {
+        // Mode 2: the raw content key travels to the server (it wraps it at
+        // rest). max_reads 0 in the picker means unlimited → null on the wire.
+        const wireMaxReads = maxReads === 0 ? null : maxReads;
+        const response = await fetch(`${env.apiBaseUrl}/snippets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            share_mode: "pin_share",
+            content_type: contentType,
+            ciphertext: ciphertextB64,
+            content_key: base64Encode(key),
+            encrypted_metadata: metadataB64,
+            ttl_seconds: ttlSeconds,
+            max_reads: wireMaxReads,
+            ...passwordFields,
+          }),
+        });
+        if (!response.ok) {
+          const detail = await safeErrorBody(response);
+          throw new Error(
+            `${response.status} ${response.statusText}${detail ? ` — ${detail}` : ""}`,
+          );
+        }
+        const { id, pin, expires_at } = (await response.json()) as {
+          id: string;
+          pin: string;
+          expires_at: string;
+        };
+        const url = `${window.location.origin}/r?pin=${pin}`;
+        let copied = false;
+        try {
+          await navigator.clipboard.writeText(url);
+          copied = true;
+        } catch {
+          copied = false;
+        }
+        setStatus({
+          kind: "sent",
+          details: {
+            id,
+            url,
+            copied,
+            expiresAt: new Date(expires_at),
+            kind: "pin",
+            pin,
+            maxReads: wireMaxReads,
+          },
+        });
+        return;
+      }
+
       const response = await fetch(`${env.apiBaseUrl}/snippets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          share_mode: "link",
+          content_type: contentType,
+          ciphertext: ciphertextB64,
+          encrypted_metadata: metadataB64,
+          ttl_seconds: ttlSeconds,
+          max_reads: 1,
+          ...passwordFields,
+        }),
       });
       if (!response.ok) {
         const detail = await safeErrorBody(response);
@@ -167,19 +237,20 @@ export function Composer() {
 
       setStatus({
         kind: "sent",
-        details: { id, url, copied, expiresAt: new Date(expires_at) },
+        details: { id, url, copied, expiresAt: new Date(expires_at), kind: "link", maxReads: 1 },
       });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       setStatus({ kind: "failed", reason });
     }
-  }, [attachedFile, password, passwordEnabled, text, ttlSeconds]);
+  }, [attachedFile, maxReads, password, passwordEnabled, text, ttlSeconds]);
 
   function reset() {
     setText("");
     setAttachedFile(null);
     setAttachError(null);
     setTtlSeconds(600);
+    setMaxReads(1);
     setPasswordEnabled(false);
     setPassword("");
     setStatus({ kind: "idle" });
@@ -188,7 +259,7 @@ export function Composer() {
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
-      void send();
+      void send("link");
     }
   }
 
@@ -278,13 +349,23 @@ Encrypted in your browser before it leaves."
               options={LIFETIME_OPTIONS}
               onChange={setTtlSeconds}
             />
-            <PixelPill
-              icon={<PixelIcon name="eye" size={12} />}
-              label="reads"
-              value="1"
-              disabled
-              title="Link burns after one read; multi-read PINs ship later"
-            />
+            {signedIn ? (
+              <PixelSelectPill
+                icon={<PixelIcon name="eye" size={12} />}
+                label="reads"
+                value={maxReads}
+                options={READS_OPTIONS}
+                onChange={setMaxReads}
+              />
+            ) : (
+              <PixelPill
+                icon={<PixelIcon name="eye" size={12} />}
+                label="reads"
+                value="1"
+                disabled
+                title="Link burns after one read; sign in for multi-read PINs"
+              />
+            )}
             <button
               type="button"
               onClick={() => {
@@ -356,7 +437,7 @@ Encrypted in your browser before it leaves."
                   <PixelIcon name="command" size={12} />↵
                 </kbd>
               }
-              onClick={send}
+              onClick={() => send("link")}
               disabled={sendDisabled}
             >
               {primaryLabel}
@@ -366,8 +447,9 @@ Encrypted in your browser before it leaves."
               size="lg"
               block
               leading={<PixelIcon name="lock" size={20} />}
-              disabled
-              title="Sign in to share by PIN"
+              onClick={() => send("pin")}
+              disabled={!signedIn || sendDisabled}
+              title={signedIn ? "Share by PIN (members)" : "Sign in to share by PIN"}
             >
               Get a PIN
             </PixelButton>
@@ -383,10 +465,20 @@ Encrypted in your browser before it leaves."
               <span className="md:hidden">
                 <WispMascot state="linking" size={2} animate={false} />
               </span>
-              <span>
-                Only the link-holder can read it. Sign in to share by PIN —
-                easier for groups.
-              </span>
+              {signedIn ? (
+                <span>
+                  Only holders of the link or PIN can read it. Pick reads +
+                  lifetime above, then Get a PIN to share with a group.
+                </span>
+              ) : (
+                <span>
+                  Only the link-holder can read it.{" "}
+                  <Link href="/login" className="underline">
+                    Sign in
+                  </Link>{" "}
+                  to share by PIN — easier for groups.
+                </span>
+              )}
             </p>
           )}
         </div>
