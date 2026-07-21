@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
@@ -11,32 +12,33 @@ import { PixelPill } from "@/components/pixel/PixelPill";
 import { PixelSelectPill } from "@/components/pixel/PixelSelectPill";
 import { PixelTextarea } from "@/components/pixel/PixelInput";
 import { WispMascot } from "@/components/pixel/WispMascot";
-import {
-  base64Encode,
-  base64urlEncode,
-  packEnvelope,
-} from "@/lib/crypto/encoding";
+import { encodeMetadata, type ClipMetadata } from "@/lib/clip/metadata";
+import { base64Encode, base64urlEncode, packEnvelope } from "@/lib/crypto/encoding";
 import { derivePasswordHash, generatePasswordSalt } from "@/lib/crypto/password";
 import { env } from "@/lib/env";
 import { detectLanguage } from "@/lib/highlight/detect";
-import type { Language } from "@/lib/highlight/highlight";
 import { detectUrl } from "@/lib/url-preview/detect";
 import { useSession } from "@/lib/hooks/useSession";
 import type { SentDetails } from "./SentState";
 
+// Draft text stashed here when a Save-to-clips attempt finds the passphrase
+// locked, so redirecting to /unlock and back doesn't lose what was typed.
+const DRAFT_KEY = "wispr-draft";
+
 // SentState carries the QR renderer (qrcode.react) which is only needed
 // after a successful send. Lazy-loading it keeps that dependency out of
 // the initial home-page bundle so the first paint is light.
-const SentState = dynamic(
-  () => import("./SentState").then((m) => ({ default: m.SentState })),
-  { loading: () => null, ssr: false },
-);
+const SentState = dynamic(() => import("./SentState").then((m) => ({ default: m.SentState })), {
+  loading: () => null,
+  ssr: false,
+});
 
 type Status =
   | { kind: "idle" }
   | { kind: "encrypting" }
   | { kind: "posting" }
   | { kind: "sent"; details: SentDetails }
+  | { kind: "saved"; id: string }
   | { kind: "failed"; reason: string };
 
 const LIFETIME_OPTIONS = [
@@ -59,28 +61,15 @@ const READS_OPTIONS = [
 // ciphertext bytes is set with this in mind.
 const MAX_INLINE_FILE_BYTES = 256 * 1024;
 
-// Encrypted metadata is opaque to the server. The schema is a version
-// tag plus optional fields the receiver uses to render — the ``lang``
-// hint drives syntax highlighting; ``name`` / ``mime`` describe an
-// inline file attachment.
-interface MetadataPayload {
-  v: 1;
-  lang?: Language;
-  name?: string;
-  mime?: string;
-}
-
-function encodeMetadata(meta: MetadataPayload): Uint8Array {
-  return new TextEncoder().encode(JSON.stringify(meta));
-}
-
 export function Composer() {
+  const router = useRouter();
   const [text, setText] = useState("");
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [ttlSeconds, setTtlSeconds] = useState<number>(600);
   const [maxReads, setMaxReads] = useState<number>(1);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [pending, setPending] = useState<"link" | "pin" | "sync" | null>(null);
   const [passwordEnabled, setPasswordEnabled] = useState(false);
   const [password, setPassword] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,76 +84,146 @@ export function Composer() {
   const detectedLanguage =
     attachedFile === null && detectedUrl === null ? detectLanguage(text) : null;
 
-  const send = useCallback(async (mode: "link" | "pin") => {
-    if (attachedFile === null && !text.trim()) return;
-    setStatus({ kind: "encrypting" });
-    try {
-      const crypto = await import("@/lib/crypto/client");
+  const send = useCallback(
+    async (mode: "link" | "pin" | "sync") => {
+      if (attachedFile === null && !text.trim()) return;
+      setPending(mode);
+      setStatus({ kind: "encrypting" });
+      try {
+        let contentBytes: Uint8Array;
+        let metadata: ClipMetadata;
+        let contentType: "text" | "code" | "url" | "file";
 
-      const key = await crypto.generateKey();
+        if (attachedFile !== null) {
+          contentBytes = new Uint8Array(await attachedFile.arrayBuffer());
+          metadata = {
+            v: 1,
+            name: attachedFile.name,
+            mime: attachedFile.type || "application/octet-stream",
+          };
+          contentType = "file";
+        } else {
+          contentBytes = new TextEncoder().encode(text);
+          // Re-run detection at send time so the body reflects the final
+          // textarea state regardless of any intermediate edits.
+          const urlAtSend = detectUrl(text);
+          const langAtSend = urlAtSend === null ? detectLanguage(text) : null;
+          metadata = langAtSend === null ? { v: 1 } : { v: 1, lang: langAtSend };
+          contentType = urlAtSend !== null ? "url" : langAtSend !== null ? "code" : "text";
+        }
 
-      let contentBytes: Uint8Array;
-      let metadata: MetadataPayload;
-      let contentType: "text" | "code" | "url" | "file";
+        if (mode === "sync") {
+          // Mode 4: seal under a per-clip DEK wrapped by the master KEK. That
+          // KEK lives only in this tab's worker, so a locked tab must unlock
+          // first — stash the draft and bounce through /unlock so nothing typed
+          // is lost.
+          const { hasKeys } = await import("@/lib/crypto/client");
+          if (!(await hasKeys())) {
+            try {
+              window.sessionStorage.setItem(DRAFT_KEY, text);
+            } catch {
+              // Private-mode / storage-disabled: proceed without the stash.
+            }
+            router.push(`/unlock?next=${encodeURIComponent("/")}`);
+            return;
+          }
+          const { sealClip } = await import("@/lib/sync/clip");
+          const { createSyncSnippet } = await import("@/lib/api/sync");
+          const sealed = await sealClip(contentBytes, metadata);
+          setStatus({ kind: "posting" });
+          const id = await createSyncSnippet(contentType, sealed);
+          setStatus({ kind: "saved", id });
+          return;
+        }
 
-      if (attachedFile !== null) {
-        contentBytes = new Uint8Array(await attachedFile.arrayBuffer());
-        metadata = {
-          v: 1,
-          name: attachedFile.name,
-          mime: attachedFile.type || "application/octet-stream",
-        };
-        contentType = "file";
-      } else {
-        contentBytes = new TextEncoder().encode(text);
-        // Re-run detection at send time so the body reflects the final
-        // textarea state regardless of any intermediate edits.
-        const urlAtSend = detectUrl(text);
-        const langAtSend = urlAtSend === null ? detectLanguage(text) : null;
-        metadata = langAtSend === null ? { v: 1 } : { v: 1, lang: langAtSend };
-        contentType =
-          urlAtSend !== null ? "url" : langAtSend !== null ? "code" : "text";
-      }
+        const crypto = await import("@/lib/crypto/client");
+        const key = await crypto.generateKey();
+        const content = await crypto.encrypt(key, contentBytes);
+        const meta = await crypto.encrypt(key, encodeMetadata(metadata));
 
-      const content = await crypto.encrypt(key, contentBytes);
-      const meta = await crypto.encrypt(key, encodeMetadata(metadata));
+        // Compute the optional password gate: PBKDF2 runs client-side so the
+        // raw password never reaches the server — only the derived hash + salt.
+        let passwordHash: string | undefined;
+        let passwordSalt: string | undefined;
+        if (passwordEnabled && password.length > 0) {
+          const salt = generatePasswordSalt();
+          const hash = await derivePasswordHash(password, salt);
+          passwordHash = base64Encode(hash);
+          passwordSalt = base64Encode(salt);
+        }
 
-      // Compute the optional password gate (client-side PBKDF2 — see
-      // [D-260526-01]). The raw password never reaches the server.
-      let passwordHash: string | undefined;
-      let passwordSalt: string | undefined;
-      if (passwordEnabled && password.length > 0) {
-        const salt = generatePasswordSalt();
-        const hash = await derivePasswordHash(password, salt);
-        passwordHash = base64Encode(hash);
-        passwordSalt = base64Encode(salt);
-      }
+        const ciphertextB64 = base64Encode(packEnvelope(content.iv, content.ciphertext));
+        const metadataB64 = base64Encode(packEnvelope(meta.iv, meta.ciphertext));
+        const passwordFields =
+          passwordHash !== undefined && passwordSalt !== undefined
+            ? { password_hash: passwordHash, password_salt: passwordSalt }
+            : {};
 
-      const ciphertextB64 = base64Encode(packEnvelope(content.iv, content.ciphertext));
-      const metadataB64 = base64Encode(packEnvelope(meta.iv, meta.ciphertext));
-      const passwordFields =
-        passwordHash !== undefined && passwordSalt !== undefined
-          ? { password_hash: passwordHash, password_salt: passwordSalt }
-          : {};
+        setStatus({ kind: "posting" });
 
-      setStatus({ kind: "posting" });
+        if (mode === "pin") {
+          // Mode 2: the raw content key travels to the server (it wraps it at
+          // rest). max_reads 0 in the picker means unlimited → null on the wire.
+          const wireMaxReads = maxReads === 0 ? null : maxReads;
+          const response = await fetch(`${env.apiBaseUrl}/snippets`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              share_mode: "pin_share",
+              content_type: contentType,
+              ciphertext: ciphertextB64,
+              content_key: base64Encode(key),
+              encrypted_metadata: metadataB64,
+              ttl_seconds: ttlSeconds,
+              max_reads: wireMaxReads,
+              ...passwordFields,
+            }),
+          });
+          if (!response.ok) {
+            const detail = await safeErrorBody(response);
+            throw new Error(
+              `${response.status} ${response.statusText}${detail ? ` — ${detail}` : ""}`,
+            );
+          }
+          const { id, pin, expires_at } = (await response.json()) as {
+            id: string;
+            pin: string;
+            expires_at: string;
+          };
+          const url = `${window.location.origin}/r?pin=${pin}`;
+          let copied = false;
+          try {
+            await navigator.clipboard.writeText(url);
+            copied = true;
+          } catch {
+            copied = false;
+          }
+          setStatus({
+            kind: "sent",
+            details: {
+              id,
+              url,
+              copied,
+              expiresAt: new Date(expires_at),
+              kind: "pin",
+              pin,
+              maxReads: wireMaxReads,
+            },
+          });
+          return;
+        }
 
-      if (mode === "pin") {
-        // Mode 2: the raw content key travels to the server (it wraps it at
-        // rest). max_reads 0 in the picker means unlimited → null on the wire.
-        const wireMaxReads = maxReads === 0 ? null : maxReads;
         const response = await fetch(`${env.apiBaseUrl}/snippets`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          credentials: "include",
           body: JSON.stringify({
-            share_mode: "pin_share",
+            share_mode: "link",
             content_type: contentType,
             ciphertext: ciphertextB64,
-            content_key: base64Encode(key),
             encrypted_metadata: metadataB64,
             ttl_seconds: ttlSeconds,
-            max_reads: wireMaxReads,
+            max_reads: 1,
             ...passwordFields,
           }),
         });
@@ -174,12 +233,14 @@ export function Composer() {
             `${response.status} ${response.statusText}${detail ? ` — ${detail}` : ""}`,
           );
         }
-        const { id, pin, expires_at } = (await response.json()) as {
-          id: string;
-          pin: string;
-          expires_at: string;
-        };
-        const url = `${window.location.origin}/r?pin=${pin}`;
+        const { id, expires_at } = (await response.json()) as { id: string; expires_at: string };
+
+        const keyB64Url = base64urlEncode(key);
+        const url = `${window.location.origin}/s/${id}#k=${keyB64Url}`;
+
+        // Best-effort copy. Some browsers / contexts deny clipboard writes
+        // (e.g. non-secure contexts in dev); the sent state still shows
+        // the URL and a manual copy button so the user is not stuck.
         let copied = false;
         try {
           await navigator.clipboard.writeText(url);
@@ -187,63 +248,32 @@ export function Composer() {
         } catch {
           copied = false;
         }
+
         setStatus({
           kind: "sent",
-          details: {
-            id,
-            url,
-            copied,
-            expiresAt: new Date(expires_at),
-            kind: "pin",
-            pin,
-            maxReads: wireMaxReads,
-          },
+          details: { id, url, copied, expiresAt: new Date(expires_at), kind: "link", maxReads: 1 },
         });
-        return;
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        setStatus({ kind: "failed", reason });
+      } finally {
+        setPending(null);
       }
+    },
+    [attachedFile, maxReads, password, passwordEnabled, router, text, ttlSeconds],
+  );
 
-      const response = await fetch(`${env.apiBaseUrl}/snippets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          share_mode: "link",
-          content_type: contentType,
-          ciphertext: ciphertextB64,
-          encrypted_metadata: metadataB64,
-          ttl_seconds: ttlSeconds,
-          max_reads: 1,
-          ...passwordFields,
-        }),
-      });
-      if (!response.ok) {
-        const detail = await safeErrorBody(response);
-        throw new Error(`${response.status} ${response.statusText}${detail ? ` — ${detail}` : ""}`);
-      }
-      const { id, expires_at } = (await response.json()) as { id: string; expires_at: string };
-
-      const keyB64Url = base64urlEncode(key);
-      const url = `${window.location.origin}/s/${id}#k=${keyB64Url}`;
-
-      // Best-effort copy. Some browsers / contexts deny clipboard writes
-      // (e.g. non-secure contexts in dev); the sent state still shows
-      // the URL and a manual copy button so the user is not stuck.
-      let copied = false;
-      try {
-        await navigator.clipboard.writeText(url);
-        copied = true;
-      } catch {
-        copied = false;
-      }
-
-      setStatus({
-        kind: "sent",
-        details: { id, url, copied, expiresAt: new Date(expires_at), kind: "link", maxReads: 1 },
-      });
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      setStatus({ kind: "failed", reason });
+  // Restore a draft stashed before an unlock detour (see the sync branch).
+  useEffect(() => {
+    let stashed: string | null = null;
+    try {
+      stashed = window.sessionStorage.getItem(DRAFT_KEY);
+      if (stashed !== null) window.sessionStorage.removeItem(DRAFT_KEY);
+    } catch {
+      stashed = null;
     }
-  }, [attachedFile, maxReads, password, passwordEnabled, text, ttlSeconds]);
+    if (stashed) setText(stashed);
+  }, []);
 
   function reset() {
     setText("");
@@ -259,7 +289,8 @@ export function Composer() {
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
-      void send("link");
+      // Cmd+Enter saves to My clips when signed in; otherwise gets a link.
+      void send(signedIn ? "sync" : "link");
     }
   }
 
@@ -288,22 +319,27 @@ export function Composer() {
     return <SentState details={status.details} onSendAnother={reset} />;
   }
 
+  if (status.kind === "saved") {
+    return <SavedState onSaveAnother={reset} />;
+  }
+
   const busy = status.kind === "encrypting" || status.kind === "posting";
   const sendDisabled =
-    busy ||
-    (attachedFile === null && !text.trim()) ||
-    (passwordEnabled && password.length === 0);
-  const primaryLabel = busy
-    ? status.kind === "encrypting"
-      ? "Encrypting…"
-      : "Sending…"
-    : attachedFile !== null
-      ? "Send file"
-      : "Get a link";
+    busy || (attachedFile === null && !text.trim()) || (passwordEnabled && password.length === 0);
+  const linkBase = attachedFile !== null ? "Send file" : "Get a link";
+  // The in-flight button shows progress; the rest keep their resting label.
+  const actionLabel = (mode: "link" | "pin" | "sync", base: string): string =>
+    pending === mode
+      ? status.kind === "encrypting"
+        ? "Encrypting…"
+        : mode === "sync"
+          ? "Saving…"
+          : "Sending…"
+      : base;
 
   return (
     <section className="relative">
-      <div className="pointer-events-none absolute -top-8 right-4 z-10 hidden md:block md:-top-12 md:right-8">
+      <div className="pointer-events-none absolute -top-8 right-4 z-10 hidden md:-top-12 md:right-8 md:block">
         <WispMascot state="wave" size={3} />
       </div>
 
@@ -325,20 +361,14 @@ Encrypted in your browser before it leaves."
           )}
 
           {attachError !== null && (
-            <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-body)] text-[14px]">
-              <span className="font-semibold text-[var(--color-pink)]">
-                Couldn&apos;t attach.
-              </span>{" "}
+            <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 text-[14px] font-[var(--font-body)]">
+              <span className="font-semibold text-[var(--color-pink)]">Couldn&apos;t attach.</span>{" "}
               <span className="opacity-80">{attachError}</span>
             </p>
           )}
 
           {passwordEnabled && (
-            <PasswordRow
-              value={password}
-              onChange={setPassword}
-              disabled={busy}
-            />
+            <PasswordRow value={password} onChange={setPassword} disabled={busy} />
           )}
 
           <div className="flex flex-wrap gap-2">
@@ -376,15 +406,13 @@ Encrypted in your browser before it leaves."
                 });
               }}
               disabled={busy}
-              className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 font-[var(--font-display)] text-[12px] tracking-widest uppercase text-[var(--fg)] shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 text-[12px] font-[var(--font-display)] tracking-widest text-[var(--fg)] uppercase shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
               aria-pressed={passwordEnabled}
               title="Optional password gate on top of the URL key"
             >
               <PixelIcon name="lock" size={12} />
               password
-              <span className="num opacity-70">
-                {passwordEnabled ? "on" : "off"}
-              </span>
+              <span className="num opacity-70">{passwordEnabled ? "on" : "off"}</span>
             </button>
             {detectedUrl !== null && (
               <PixelPill
@@ -413,7 +441,7 @@ Encrypted in your browser before it leaves."
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={attachedFile !== null || busy}
-              className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 font-[var(--font-display)] text-[12px] tracking-widest uppercase text-[var(--fg)] shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 text-[12px] font-[var(--font-display)] tracking-widest text-[var(--fg)] uppercase shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
               title="Attach a file (up to 256 KiB)"
             >
               <PixelIcon name="attachment" size={12} />
@@ -421,54 +449,72 @@ Encrypted in your browser before it leaves."
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <PixelButton
-              variant="primary"
-              size="lg"
-              block
-              leading={
-                <PixelIcon
-                  name={attachedFile !== null ? "file" : "link"}
-                  size={20}
-                />
-              }
-              trailing={
-                <kbd className="ml-1 inline-flex items-center gap-1 border-2 border-current px-1.5 py-0.5 font-[var(--font-mono)] text-[12px]">
-                  <PixelIcon name="command" size={12} />↵
-                </kbd>
-              }
-              onClick={() => send("link")}
-              disabled={sendDisabled}
-            >
-              {primaryLabel}
-            </PixelButton>
-            <PixelButton
-              variant="secondary"
-              size="lg"
-              block
-              leading={<PixelIcon name="lock" size={20} />}
-              onClick={() => send("pin")}
-              disabled={!signedIn || sendDisabled}
-              title={signedIn ? "Share by PIN (members)" : "Sign in to share by PIN"}
-            >
-              Get a PIN
-            </PixelButton>
+          <div className="flex flex-col gap-3">
+            {signedIn && (
+              // Members: saving to My clips is the default action (Cmd+Enter).
+              <PixelButton
+                variant="primary"
+                size="lg"
+                block
+                leading={<PixelIcon name="bookmark" size={20} />}
+                trailing={
+                  <kbd className="ml-1 inline-flex items-center gap-1 border-2 border-current px-1.5 py-0.5 text-[12px] font-[var(--font-mono)]">
+                    <PixelIcon name="command" size={12} />↵
+                  </kbd>
+                }
+                onClick={() => send("sync")}
+                disabled={sendDisabled}
+                title="Encrypt and keep in your private clips"
+              >
+                {actionLabel("sync", "Save to my clips")}
+              </PixelButton>
+            )}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <PixelButton
+                variant={signedIn ? "secondary" : "primary"}
+                size="lg"
+                block
+                leading={<PixelIcon name={attachedFile !== null ? "file" : "link"} size={20} />}
+                trailing={
+                  signedIn ? undefined : (
+                    <kbd className="ml-1 inline-flex items-center gap-1 border-2 border-current px-1.5 py-0.5 text-[12px] font-[var(--font-mono)]">
+                      <PixelIcon name="command" size={12} />↵
+                    </kbd>
+                  )
+                }
+                onClick={() => send("link")}
+                disabled={sendDisabled}
+              >
+                {actionLabel("link", linkBase)}
+              </PixelButton>
+              <PixelButton
+                variant="secondary"
+                size="lg"
+                block
+                leading={<PixelIcon name="lock" size={20} />}
+                onClick={() => send("pin")}
+                disabled={!signedIn || sendDisabled}
+                title={signedIn ? "Share by PIN (members)" : "Sign in to share by PIN"}
+              >
+                {actionLabel("pin", "Get a PIN")}
+              </PixelButton>
+            </div>
           </div>
 
           {status.kind === "failed" ? (
-            <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-body)] text-[14px]">
+            <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 text-[14px] font-[var(--font-body)]">
               <span className="font-semibold text-[var(--color-pink)]">Could not send.</span>{" "}
               <span className="num opacity-90">{status.reason}</span>
             </p>
           ) : (
-            <p className="flex items-center gap-2 font-[var(--font-body)] text-[14px] opacity-70">
+            <p className="flex items-center gap-2 text-[14px] font-[var(--font-body)] opacity-70">
               <span className="md:hidden">
                 <WispMascot state="linking" size={2} animate={false} />
               </span>
               {signedIn ? (
                 <span>
-                  Only holders of the link or PIN can read it. Pick reads +
-                  lifetime above, then Get a PIN to share with a group.
+                  Only holders of the link or PIN can read it. Pick reads + lifetime above, then Get
+                  a PIN to share with a group.
                 </span>
               ) : (
                 <span>
@@ -487,6 +533,49 @@ Encrypted in your browser before it leaves."
   );
 }
 
+function SavedState({ onSaveAnother }: { onSaveAnother: () => void }) {
+  const router = useRouter();
+  return (
+    <section className="relative">
+      <PixelCard variant="lifted" accent="moss">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <WispMascot state="success" size={2} />
+            <div>
+              <h2 className="text-[22px] leading-tight font-[var(--font-display)]">
+                saved to your clips
+              </h2>
+              <p className="mt-1 text-[14px] font-[var(--font-body)] opacity-80">
+                Encrypted in your browser and kept in your private history.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <PixelButton
+              variant="primary"
+              size="lg"
+              block
+              leading={<PixelIcon name="bookmark" size={20} />}
+              onClick={() => router.push("/me")}
+            >
+              View my clips
+            </PixelButton>
+            <PixelButton
+              variant="secondary"
+              size="lg"
+              block
+              leading={<PixelIcon name="plus" size={20} />}
+              onClick={onSaveAnother}
+            >
+              Save another
+            </PixelButton>
+          </div>
+        </div>
+      </PixelCard>
+    </section>
+  );
+}
+
 function PasswordRow({
   value,
   onChange,
@@ -498,7 +587,7 @@ function PasswordRow({
 }) {
   return (
     <div className="flex flex-col gap-1 border-[2px] border-[var(--color-purple)] bg-[var(--bg-sunk)] px-3 py-2">
-      <label className="font-[var(--font-display)] text-[12px] tracking-widest uppercase opacity-80">
+      <label className="text-[12px] font-[var(--font-display)] tracking-widest uppercase opacity-80">
         password gate
       </label>
       <input
@@ -507,12 +596,12 @@ function PasswordRow({
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
         placeholder="receiver types this to unlock"
-        className="border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-3 py-2 font-[var(--font-mono)] text-[16px] focus:outline-none focus:border-[var(--color-pink)]"
+        className="border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-3 py-2 text-[16px] font-[var(--font-mono)] focus:border-[var(--color-pink)] focus:outline-none"
         aria-label="Snippet password"
       />
-      <p className="font-[var(--font-body)] text-[12px] opacity-70">
-        Access-control only — the URL key still decrypts the content. Use a
-        secret phrase you can share out-of-band.
+      <p className="text-[12px] font-[var(--font-body)] opacity-70">
+        Access-control only — the URL key still decrypts the content. Use a secret phrase you can
+        share out-of-band.
       </p>
     </div>
   );
@@ -523,10 +612,8 @@ function FileAttachmentRow({ file, onClear }: { file: File; onClear: () => void 
     <div className="flex items-center gap-3 border-[3px] border-[var(--border)] bg-[var(--bg-sunk)] px-4 py-3">
       <PixelIcon name="file" size={24} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-[var(--font-body)] text-[16px] font-semibold">
-          {file.name}
-        </p>
-        <p className="num font-[var(--font-mono)] text-[12px] opacity-70">
+        <p className="truncate text-[16px] font-[var(--font-body)] font-semibold">{file.name}</p>
+        <p className="num text-[12px] font-[var(--font-mono)] opacity-70">
           {formatBytes(file.size)}
           {file.type && <> · {file.type}</>}
         </p>
@@ -535,7 +622,7 @@ function FileAttachmentRow({ file, onClear }: { file: File; onClear: () => void 
         type="button"
         onClick={onClear}
         aria-label="Remove attachment"
-        className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-1 font-[var(--font-display)] text-[12px] tracking-widest uppercase text-[var(--fg)] shadow-[2px_2px_0_0_var(--border)]"
+        className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-1 text-[12px] font-[var(--font-display)] tracking-widest text-[var(--fg)] uppercase shadow-[2px_2px_0_0_var(--border)]"
       >
         <PixelIcon name="close" size={12} />
         clear
