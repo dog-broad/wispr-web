@@ -9,12 +9,17 @@ import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { WispMascot } from "@/components/pixel/WispMascot";
 import { PinInput, emptyPin } from "@/components/pair/PinInput";
+import { Mode2Receive } from "@/components/pair/Mode2Receive";
 import { env } from "@/lib/env";
+import { resolveByPin, type ByPinResult } from "@/lib/api/pin";
 import { PairSession, type PairFailure, type PairPhase } from "@/lib/pair/session";
 
-// Phase for the receiver-side entry → connection sequence.
+// Phase for the receiver-side entry → resolution sequence. A PIN can resolve
+// to a Mode 2 share (mode2) or a live Mode 3 pairing (connecting → connected).
 type Phase =
   | { kind: "entering" }
+  | { kind: "resolving"; pin: string }
+  | { kind: "mode2"; pin: string; result: ByPinResult }
   | { kind: "connecting"; pin: string; sessionPhase: PairPhase }
   | { kind: "connected"; pin: string; sas: string }
   | { kind: "failed"; pin: string; failure: PairFailure };
@@ -74,13 +79,27 @@ export function Receiver({ initialPin }: ReceiverProps) {
     [attach, detach],
   );
 
-  // If the URL arrived already-filled, kick the session immediately so
-  // the receiver feels instant.
+  // Resolve a PIN: a live pairing starts the pair session; anything else is a
+  // Mode 2 outcome handed to Mode2Receive.
+  const resolvePin = useCallback(
+    async (completed: string) => {
+      setPhase({ kind: "resolving", pin: completed });
+      const result = await resolveByPin(completed);
+      if (result.kind === "pair") {
+        startSession(completed);
+        return;
+      }
+      setPhase({ kind: "mode2", pin: completed, result });
+    },
+    [startSession],
+  );
+
+  // If the URL arrived already-filled, resolve immediately so it feels instant.
   useEffect(() => {
     if (initialPin && /^[0-9]{4}$/.test(initialPin)) {
-      startSession(initialPin);
+      void resolvePin(initialPin);
     }
-  }, [initialPin, startSession]);
+  }, [initialPin, resolvePin]);
 
   // Tear down the session if the component unmounts.
   useEffect(() => {
@@ -93,9 +112,9 @@ export function Receiver({ initialPin }: ReceiverProps) {
 
   const onComplete = useCallback(
     (completed: string) => {
-      startSession(completed);
+      void resolvePin(completed);
     },
-    [startSession],
+    [resolvePin],
   );
 
   const reset = useCallback(() => {
@@ -106,6 +125,10 @@ export function Receiver({ initialPin }: ReceiverProps) {
     setPin(emptyPin(PIN_LENGTH));
     setPhase({ kind: "entering" });
   }, [detach, resetTranscript]);
+
+  if (phase.kind === "mode2") {
+    return <Mode2Receive pin={phase.pin} initial={phase.result} onReset={reset} />;
+  }
 
   return (
     <section className="relative">
@@ -199,6 +222,15 @@ function StatusLine({ phase }: { phase: Phase }) {
     return (
       <p className="text-center font-[var(--font-body)] text-[14px] opacity-70">
         the sender will read it out, or share a QR.
+      </p>
+    );
+  }
+  if (phase.kind === "resolving") {
+    return (
+      <p className="text-center font-[var(--font-body)] text-[14px]">
+        <span className="opacity-70">checking</span>{" "}
+        <span className="num font-[var(--font-mono)]">{phase.pin}</span>
+        <span className="opacity-70">…</span>
       </p>
     );
   }

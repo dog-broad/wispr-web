@@ -1,7 +1,83 @@
-// Client for managing an owned PIN share from the sent state (rotate / delete).
-// The /r resolve client (POST /snippets/by-pin) lands with the receive page.
+// Client for the PIN surfaces: resolve a PIN at /r, and manage an owned PIN
+// share (rotate / delete) from the sent state.
 
+import { base64Decode, base64Encode } from "@/lib/crypto/encoding";
 import { env } from "@/lib/env";
+
+export type PinGoneReason = "expired" | "burned" | "taken_down" | "disabled";
+
+export interface PinShareData {
+  id: string;
+  contentType: "text" | "code" | "url" | "file";
+  contentKey: Uint8Array;
+  ciphertext: Uint8Array;
+  encryptedMetadata: Uint8Array;
+  maxReads: number | null;
+  readCount: number;
+}
+
+// Every distinct /r outcome (§7.6.7 #1–7, plus pair + Turnstile) as a tagged
+// union so the receiver renders each with dedicated copy — no generic fall.
+export type ByPinResult =
+  | { kind: "pin_share"; data: PinShareData }
+  | { kind: "pair" }
+  | { kind: "password_required"; salt: Uint8Array }
+  | { kind: "password_incorrect" }
+  | { kind: "gone"; reason: PinGoneReason }
+  | { kind: "unknown_pin" }
+  | { kind: "turnstile_required" }
+  | { kind: "turnstile_failed" }
+  | { kind: "error" };
+
+export async function resolveByPin(
+  pin: string,
+  opts: { passwordHash?: Uint8Array; turnstileToken?: string } = {},
+): Promise<ByPinResult> {
+  let response: Response;
+  try {
+    response = await fetch(`${env.apiBaseUrl}/snippets/by-pin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pin,
+        password_hash: opts.passwordHash ? base64Encode(opts.passwordHash) : null,
+        turnstile_token: opts.turnstileToken ?? null,
+      }),
+    });
+  } catch {
+    return { kind: "error" };
+  }
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+  if (response.status === 200) {
+    if (body.mode === "pair") return { kind: "pair" };
+    return {
+      kind: "pin_share",
+      data: {
+        id: String(body.id),
+        contentType: body.content_type as PinShareData["contentType"],
+        contentKey: base64Decode(String(body.content_key)),
+        ciphertext: base64Decode(String(body.ciphertext)),
+        encryptedMetadata: base64Decode(String(body.encrypted_metadata)),
+        maxReads: body.max_reads === null ? null : Number(body.max_reads),
+        readCount: Number(body.read_count),
+      },
+    };
+  }
+  if (response.status === 401) {
+    if (body.status === "password_required") {
+      return { kind: "password_required", salt: base64Decode(String(body.password_salt)) };
+    }
+    return { kind: "password_incorrect" };
+  }
+  if (response.status === 410) return { kind: "gone", reason: body.reason as PinGoneReason };
+  if (response.status === 404) return { kind: "unknown_pin" };
+  if (response.status === 403) return { kind: "turnstile_required" };
+  if (response.status === 400 && body.reason === "turnstile_failed") {
+    return { kind: "turnstile_failed" };
+  }
+  return { kind: "error" };
+}
 
 /** Issue a fresh PIN for an owned share. Returns the new PIN. */
 export async function rotatePin(id: string): Promise<string> {

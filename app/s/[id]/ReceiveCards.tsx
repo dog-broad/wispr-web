@@ -504,7 +504,9 @@ export function WrongKeyCard() {
 
 // ----- Gone (expired / burned / taken_down) --------------------------
 
-const GONE_COPY: Record<"expired" | "burned" | "taken_down", { heading: string; sub: string; badge: string }> = {
+export type GoneReason = "expired" | "burned" | "taken_down" | "disabled";
+
+const GONE_COPY: Record<GoneReason, { heading: string; sub: string; badge: string }> = {
   expired: {
     heading: "This share has expired.",
     sub: "The sender set a lifetime on this link and it has run out. Ask them to send a fresh one.",
@@ -520,9 +522,14 @@ const GONE_COPY: Record<"expired" | "burned" | "taken_down", { heading: string; 
     sub: "The operator pulled this snippet down. Ask the sender if you need it again.",
     badge: "taken down",
   },
+  disabled: {
+    heading: "This PIN was disabled.",
+    sub: "Too many wrong tries locked it. Ask the sender to issue a new PIN.",
+    badge: "disabled",
+  },
 };
 
-export function GoneCard({ reason }: { reason: "expired" | "burned" | "taken_down" }) {
+export function GoneCard({ reason }: { reason: GoneReason }) {
   const copy = GONE_COPY[reason];
   return (
     <Shell
