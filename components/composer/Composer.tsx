@@ -18,7 +18,9 @@ import { derivePasswordHash, generatePasswordSalt } from "@/lib/crypto/password"
 import { createLinkShare, createPinShare, type PasswordGate } from "@/lib/share/create";
 import { detectLanguage } from "@/lib/highlight/detect";
 import { detectUrl } from "@/lib/url-preview/detect";
+import { useOnline } from "@/lib/hooks/useOnline";
 import { useSession } from "@/lib/hooks/useSession";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import type { SentDetails } from "./SentState";
 
 // Draft text stashed here when a Save-to-clips attempt finds the passphrase
@@ -39,6 +41,7 @@ type Status =
   | { kind: "posting" }
   | { kind: "sent"; details: SentDetails }
   | { kind: "saved"; id: string }
+  | { kind: "queued" }
   | { kind: "failed"; reason: string };
 
 const LIFETIME_OPTIONS = [
@@ -75,6 +78,7 @@ export function Composer() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { session } = useSession();
   const signedIn = session !== null;
+  const online = useOnline();
 
   // Content-type detection runs on every keystroke. URL takes priority
   // over language because a single-URL share gets its own rich preview
@@ -116,9 +120,17 @@ export function Composer() {
           // Mode 4: seal under a per-clip DEK wrapped by the master KEK. That
           // KEK lives only in this tab's worker, so a locked tab must unlock
           // first — stash the draft and bounce through /unlock so nothing typed
-          // is lost.
+          // is lost. Unlock needs the network, so a locked + offline tab can't
+          // save at all.
           const { hasKeys } = await import("@/lib/crypto/client");
           if (!(await hasKeys())) {
+            if (!navigator.onLine) {
+              setStatus({
+                kind: "failed",
+                reason: "Unlocking needs a connection. Reconnect to save.",
+              });
+              return;
+            }
             try {
               window.sessionStorage.setItem(DRAFT_KEY, text);
             } catch {
@@ -128,8 +140,16 @@ export function Composer() {
             return;
           }
           const { sealClip } = await import("@/lib/sync/clip");
-          const { createSyncSnippet } = await import("@/lib/api/sync");
           const sealed = await sealClip(contentBytes, metadata);
+          // Offline: the clip is already ciphertext, so park it in IndexedDB and
+          // let the app-wide flusher POST it when the connection returns.
+          if (!navigator.onLine) {
+            const { enqueue } = await import("@/lib/sync/queue");
+            await enqueue(contentType, sealed);
+            setStatus({ kind: "queued" });
+            return;
+          }
+          const { createSyncSnippet } = await import("@/lib/api/sync");
           setStatus({ kind: "posting" });
           const id = await createSyncSnippet(contentType, sealed);
           setStatus({ kind: "saved", id });
@@ -261,6 +281,10 @@ export function Composer() {
     return <SavedState onSaveAnother={reset} />;
   }
 
+  if (status.kind === "queued") {
+    return <QueuedState onSaveAnother={reset} />;
+  }
+
   const busy = status.kind === "encrypting" || status.kind === "posting";
   const sendDisabled =
     busy || (attachedFile === null && !text.trim()) || (passwordEnabled && password.length === 0);
@@ -387,9 +411,20 @@ Encrypted in your browser before it leaves."
             </button>
           </div>
 
+          {!online && (
+            <OfflineBanner
+              note={
+                signedIn
+                  ? "Links and PINs need a connection. Clips you save are queued and sync when you reconnect."
+                  : "Reconnect to publish a link."
+              }
+            />
+          )}
+
           <div className="flex flex-col gap-3">
             {signedIn && (
               // Members: saving to My clips is the default action (Cmd+Enter).
+              // Stays enabled offline — the clip queues locally.
               <PixelButton
                 variant="primary"
                 size="lg"
@@ -404,7 +439,7 @@ Encrypted in your browser before it leaves."
                 disabled={sendDisabled}
                 title="Encrypt and keep in your private clips"
               >
-                {actionLabel("sync", "Save to my clips")}
+                {actionLabel("sync", online ? "Save to my clips" : "Queue for my clips")}
               </PixelButton>
             )}
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -421,7 +456,8 @@ Encrypted in your browser before it leaves."
                   )
                 }
                 onClick={() => send("link")}
-                disabled={sendDisabled}
+                disabled={sendDisabled || !online}
+                title={online ? undefined : "Reconnect to publish a link"}
               >
                 {actionLabel("link", linkBase)}
               </PixelButton>
@@ -431,8 +467,14 @@ Encrypted in your browser before it leaves."
                 block
                 leading={<PixelIcon name="lock" size={20} />}
                 onClick={() => send("pin")}
-                disabled={!signedIn || sendDisabled}
-                title={signedIn ? "Share by PIN (members)" : "Sign in to share by PIN"}
+                disabled={!signedIn || sendDisabled || !online}
+                title={
+                  !online
+                    ? "Reconnect to publish a PIN"
+                    : signedIn
+                      ? "Share by PIN (members)"
+                      : "Sign in to share by PIN"
+                }
               >
                 {actionLabel("pin", "Get a PIN")}
               </PixelButton>
@@ -508,6 +550,37 @@ function SavedState({ onSaveAnother }: { onSaveAnother: () => void }) {
               Save another
             </PixelButton>
           </div>
+        </div>
+      </PixelCard>
+    </section>
+  );
+}
+
+function QueuedState({ onSaveAnother }: { onSaveAnother: () => void }) {
+  return (
+    <section className="relative">
+      <PixelCard variant="lifted" accent="marigold">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <WispMascot state="sleeping" size={2} />
+            <div>
+              <h2 className="text-[22px] leading-tight font-[var(--font-display)]">
+                queued for your clips
+              </h2>
+              <p className="mt-1 text-[14px] font-[var(--font-body)] opacity-80">
+                Encrypted and saved on this device. It syncs to your clips the moment you reconnect.
+              </p>
+            </div>
+          </div>
+          <PixelButton
+            variant="secondary"
+            size="lg"
+            block
+            leading={<PixelIcon name="plus" size={20} />}
+            onClick={onSaveAnother}
+          >
+            Save another
+          </PixelButton>
         </div>
       </PixelCard>
     </section>

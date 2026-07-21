@@ -12,8 +12,12 @@ import { listSyncSnippets, type ClipContentType, type SyncItem } from "@/lib/api
 import { deleteSnippet } from "@/lib/api/pin";
 import { hasKeys } from "@/lib/crypto/client";
 import { openClip } from "@/lib/sync/clip";
+import { queueCount } from "@/lib/sync/queue";
+import { QUEUE_FLUSHED_EVENT } from "@/lib/sync/flush";
 import { stashPairDraft } from "@/lib/pair/draft";
 import { createLinkShare, createPinShare } from "@/lib/share/create";
+import { useOnline } from "@/lib/hooks/useOnline";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import type { ClipMetadata } from "@/lib/clip/metadata";
 import type { Language } from "@/lib/highlight/highlight";
 
@@ -72,6 +76,7 @@ async function toView(item: SyncItem): Promise<ClipView> {
 
 export function ClipsFeed() {
   const router = useRouter();
+  const online = useOnline();
   const [gate, setGate] = useState<Gate>("checking");
   const [items, setItems] = useState<ClipView[]>([]);
   const [nextBefore, setNextBefore] = useState<string | null>(null);
@@ -79,6 +84,16 @@ export function ClipsFeed() {
   const [feedStatus, setFeedStatus] = useState<FeedStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [queued, setQueued] = useState(0);
+
+  // Replace the first page from the server — used on the initial load and
+  // after the offline queue flushes so newly-synced clips show immediately.
+  const loadFirstPage = useCallback(async () => {
+    const page = await listSyncSnippets();
+    const views = await Promise.all(page.items.map(toView));
+    setItems(views);
+    setNextBefore(page.nextBefore);
+  }, []);
 
   // Gate + initial load. Signed-out or locked sessions can't decrypt anything,
   // so they're bounced to the right surface before any fetch.
@@ -106,12 +121,7 @@ export function ClipsFeed() {
       if (cancelled) return;
       setGate("ready");
       try {
-        const page = await listSyncSnippets();
-        if (cancelled) return;
-        const views = await Promise.all(page.items.map(toView));
-        if (cancelled) return;
-        setItems(views);
-        setNextBefore(page.nextBefore);
+        await loadFirstPage();
       } catch {
         if (!cancelled) setError("Couldn't load your clips. Try again.");
       }
@@ -119,7 +129,36 @@ export function ClipsFeed() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, loadFirstPage]);
+
+  // Offline-queue awareness. The app-wide flusher (mounted in the layout) does
+  // the actual sending; here we just track the count for the "Queued (N)" pill
+  // and refetch once a flush lands so the newly-synced clips appear.
+  useEffect(() => {
+    if (gate !== "ready") return;
+    let cancelled = false;
+    const recount = () => {
+      void queueCount()
+        .then((n) => {
+          if (!cancelled) setQueued(n);
+        })
+        .catch(() => {});
+    };
+    recount();
+    const onFlushed = () => {
+      recount();
+      void loadFirstPage().catch(() => {});
+    };
+    window.addEventListener(QUEUE_FLUSHED_EVENT, onFlushed);
+    window.addEventListener("online", recount);
+    window.addEventListener("offline", recount);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(QUEUE_FLUSHED_EVENT, onFlushed);
+      window.removeEventListener("online", recount);
+      window.removeEventListener("offline", recount);
+    };
+  }, [gate, loadFirstPage]);
 
   // Live updates: prepend created clips, drop deleted ones. Only runs once the
   // session is confirmed unlocked so the socket isn't opened for a guest.
@@ -199,7 +238,20 @@ export function ClipsFeed() {
 
   return (
     <div className="flex flex-col gap-4">
-      {feedStatus === "reconnecting" && (
+      {queued > 0 && (
+        <div>
+          <PixelBadge tone="warn">
+            <PixelIcon name="cellular-signal-off" size={12} />
+            queued <span className="num">({queued})</span>
+          </PixelBadge>
+        </div>
+      )}
+
+      {!online && (
+        <OfflineBanner note="Showing your loaded clips. New saves are queued and sync when you reconnect." />
+      )}
+
+      {feedStatus === "reconnecting" && online && (
         <p className="text-[12px] font-[var(--font-body)] opacity-70">
           <span className="num">live updates reconnecting…</span>
         </p>
