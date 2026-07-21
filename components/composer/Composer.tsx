@@ -45,8 +45,8 @@ const LIFETIME_OPTIONS = [
   { value: 86400, label: "24 hr" },
 ] as const;
 
-// PIN-share read ceilings. 0 is the sentinel for "unlimited within the TTL"
-// ([D-260524-11]) — mapped to null on the wire.
+// PIN-share read ceilings. 0 is the sentinel for "unlimited within the TTL",
+// mapped to null on the wire.
 const READS_OPTIONS = [
   { value: 1, label: "1" },
   { value: 5, label: "5" },
