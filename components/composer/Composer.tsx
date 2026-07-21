@@ -15,7 +15,13 @@ import { WispMascot } from "@/components/pixel/WispMascot";
 import type { ClipMetadata } from "@/lib/clip/metadata";
 import { base64Encode } from "@/lib/crypto/encoding";
 import { derivePasswordHash, generatePasswordSalt } from "@/lib/crypto/password";
-import { createLinkShare, createPinShare, type PasswordGate } from "@/lib/share/create";
+import {
+  createLinkShare,
+  createPinShare,
+  INLINE_MAX_BYTES,
+  type PasswordGate,
+} from "@/lib/share/create";
+import { MAX_FILE_BYTES as MAX_FILE_UPLOAD_BYTES } from "@/lib/files/chunk";
 import { detectLanguage } from "@/lib/highlight/detect";
 import { detectUrl } from "@/lib/url-preview/detect";
 import { useOnline } from "@/lib/hooks/useOnline";
@@ -59,10 +65,9 @@ const READS_OPTIONS = [
   { value: 0, label: "∞" },
 ] as const;
 
-// Inline-file ceiling for Link mode. PROJECT.md §10 M2: 256 KiB
-// inline; R2-backed larger uploads land in M3. The API cap on
-// ciphertext bytes is set with this in mind.
-const MAX_INLINE_FILE_BYTES = 256 * 1024;
+// Overall file ceiling: 25 MB. Files over the inline cap (INLINE_MAX_BYTES)
+// are chunk-encrypted straight to R2 by the create helper.
+const MAX_FILE_BYTES = MAX_FILE_UPLOAD_BYTES;
 
 export function Composer() {
   const router = useRouter();
@@ -73,12 +78,17 @@ export function Composer() {
   const [maxReads, setMaxReads] = useState<number>(1);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [pending, setPending] = useState<"link" | "pin" | "sync" | null>(null);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [passwordEnabled, setPasswordEnabled] = useState(false);
   const [password, setPassword] = useState("");
+  const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { session } = useSession();
   const signedIn = session !== null;
   const online = useOnline();
+  // Large files (over the inline cap) go to R2, which only Link/PIN wire up
+  // for now — Save to My clips stays for text + small content.
+  const largeFile = attachedFile !== null && attachedFile.size > INLINE_MAX_BYTES;
 
   // Content-type detection runs on every keystroke. URL takes priority
   // over language because a single-URL share gets its own rich preview
@@ -166,6 +176,8 @@ export function Composer() {
         }
 
         setStatus({ kind: "posting" });
+        // Files report chunk-upload progress; inline content never calls this.
+        const onProgress = (fraction: number) => setUploadPct(Math.round(fraction * 100));
 
         if (mode === "pin") {
           // max_reads 0 in the picker means unlimited → null on the wire.
@@ -178,6 +190,7 @@ export function Composer() {
               ttlSeconds,
               maxReads: wireMaxReads,
               password: passwordGate,
+              onProgress,
             },
           );
           setStatus({
@@ -199,6 +212,7 @@ export function Composer() {
           ttlSeconds,
           maxReads: 1,
           password: passwordGate,
+          onProgress,
         });
         setStatus({
           kind: "sent",
@@ -216,6 +230,7 @@ export function Composer() {
         setStatus({ kind: "failed", reason });
       } finally {
         setPending(null);
+        setUploadPct(null);
       }
     },
     [attachedFile, maxReads, password, passwordEnabled, router, text, ttlSeconds],
@@ -247,9 +262,19 @@ export function Composer() {
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
-      // Cmd+Enter saves to My clips when signed in; otherwise gets a link.
-      void send(signedIn ? "sync" : "link");
+      // Cmd+Enter saves to My clips when signed in — but a large file can only
+      // go out as a link/PIN for now, so default it to link instead.
+      void send(signedIn && !largeFile ? "sync" : "link");
     }
+  }
+
+  function acceptFile(file: File) {
+    setAttachError(null);
+    if (file.size > MAX_FILE_BYTES) {
+      setAttachError(`file too large — max ${formatBytes(MAX_FILE_BYTES)}.`);
+      return;
+    }
+    setAttachedFile(file);
   }
 
   function onFilePick(event: ChangeEvent<HTMLInputElement>) {
@@ -257,15 +282,14 @@ export function Composer() {
     // Reset the input so the same file can be re-selected after a failed
     // attempt or after the user clears it.
     event.target.value = "";
-    if (!file) return;
-    setAttachError(null);
-    if (file.size > MAX_INLINE_FILE_BYTES) {
-      setAttachError(
-        `file too large — max ${formatBytes(MAX_INLINE_FILE_BYTES)} inline; larger uploads ship in the next milestone.`,
-      );
-      return;
-    }
-    setAttachedFile(file);
+    if (file) acceptFile(file);
+  }
+
+  function onDrop(event: React.DragEvent) {
+    event.preventDefault();
+    setDragging(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) acceptFile(file);
   }
 
   function clearAttachment() {
@@ -289,15 +313,14 @@ export function Composer() {
   const sendDisabled =
     busy || (attachedFile === null && !text.trim()) || (passwordEnabled && password.length === 0);
   const linkBase = attachedFile !== null ? "Send file" : "Get a link";
-  // The in-flight button shows progress; the rest keep their resting label.
-  const actionLabel = (mode: "link" | "pin" | "sync", base: string): string =>
-    pending === mode
-      ? status.kind === "encrypting"
-        ? "Encrypting…"
-        : mode === "sync"
-          ? "Saving…"
-          : "Sending…"
-      : base;
+  // The in-flight button shows progress (upload % once chunks start); the
+  // rest keep their resting label.
+  const actionLabel = (mode: "link" | "pin" | "sync", base: string): string => {
+    if (pending !== mode) return base;
+    if (status.kind === "encrypting") return "Encrypting…";
+    if (uploadPct !== null) return `Uploading ${uploadPct}%`;
+    return mode === "sync" ? "Saving…" : "Sending…";
+  };
 
   return (
     <section className="relative">
@@ -305,210 +328,223 @@ export function Composer() {
         <WispMascot state="wave" size={3} />
       </div>
 
-      <PixelCard variant="lifted" accent="pink">
-        <div className="flex flex-col gap-4">
-          {attachedFile === null ? (
-            <PixelTextarea
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Type or paste anything.
-text — code — urls — files (up to 256 KiB)
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        className={dragging ? "outline outline-4 outline-[var(--color-pink)]" : undefined}
+      >
+        <PixelCard variant="lifted" accent="pink">
+          <div className="flex flex-col gap-4">
+            {attachedFile === null ? (
+              <PixelTextarea
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="Type, paste, or drop anything.
+text — code — urls — files (up to 25 MB)
 Encrypted in your browser before it leaves."
-              rows={6}
-              aria-label="Content to send"
-            />
-          ) : (
-            <FileAttachmentRow file={attachedFile} onClear={clearAttachment} />
-          )}
-
-          {attachError !== null && (
-            <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 text-[14px] font-[var(--font-body)]">
-              <span className="font-semibold text-[var(--color-pink)]">Couldn&apos;t attach.</span>{" "}
-              <span className="opacity-80">{attachError}</span>
-            </p>
-          )}
-
-          {passwordEnabled && (
-            <PasswordRow value={password} onChange={setPassword} disabled={busy} />
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            <PixelSelectPill
-              icon={<PixelIcon name="clock" size={12} />}
-              label="lifetime"
-              value={ttlSeconds}
-              options={LIFETIME_OPTIONS}
-              onChange={setTtlSeconds}
-            />
-            {signedIn ? (
-              <PixelSelectPill
-                icon={<PixelIcon name="eye" size={12} />}
-                label="reads"
-                value={maxReads}
-                options={READS_OPTIONS}
-                onChange={setMaxReads}
+                rows={6}
+                aria-label="Content to send"
               />
             ) : (
-              <PixelPill
-                icon={<PixelIcon name="eye" size={12} />}
-                label="reads"
-                value="1"
-                disabled
-                title="Link burns after one read; sign in for multi-read PINs"
-              />
+              <FileAttachmentRow file={attachedFile} onClear={clearAttachment} />
             )}
-            <button
-              type="button"
-              onClick={() => {
-                setPasswordEnabled((current) => {
-                  const next = !current;
-                  if (!next) setPassword("");
-                  return next;
-                });
-              }}
-              disabled={busy}
-              className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 text-[12px] font-[var(--font-display)] tracking-widest text-[var(--fg)] uppercase shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
-              aria-pressed={passwordEnabled}
-              title="Optional password gate on top of the URL key"
-            >
-              <PixelIcon name="lock" size={12} />
-              password
-              <span className="num opacity-70">{passwordEnabled ? "on" : "off"}</span>
-            </button>
-            {detectedUrl !== null && (
-              <PixelPill
-                icon={<PixelIcon name="link" size={12} />}
-                label="url"
-                value={detectedUrl.hostname}
-                title="URL detected — receiver will see a link preview"
-              />
-            )}
-            {detectedLanguage !== null && (
-              <PixelPill
-                icon={<PixelIcon name="code" size={12} />}
-                label="code"
-                value={detectedLanguage}
-                title="Code detected — receiver will see syntax highlighting"
-              />
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              onChange={onFilePick}
-              aria-label="Attach a file"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={attachedFile !== null || busy}
-              className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 text-[12px] font-[var(--font-display)] tracking-widest text-[var(--fg)] uppercase shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
-              title="Attach a file (up to 256 KiB)"
-            >
-              <PixelIcon name="attachment" size={12} />
-              attach
-            </button>
-          </div>
 
-          {!online && (
-            <OfflineBanner
-              note={
-                signedIn
-                  ? "Links and PINs need a connection. Clips you save are queued and sync when you reconnect."
-                  : "Reconnect to publish a link."
-              }
-            />
-          )}
+            {attachError !== null && (
+              <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 text-[14px] font-[var(--font-body)]">
+                <span className="font-semibold text-[var(--color-pink)]">
+                  Couldn&apos;t attach.
+                </span>{" "}
+                <span className="opacity-80">{attachError}</span>
+              </p>
+            )}
 
-          <div className="flex flex-col gap-3">
-            {signedIn && (
-              // Members: saving to My clips is the default action (Cmd+Enter).
-              // Stays enabled offline — the clip queues locally.
-              <PixelButton
-                variant="primary"
-                size="lg"
-                block
-                leading={<PixelIcon name="bookmark" size={20} />}
-                trailing={
-                  <kbd className="ml-1 inline-flex items-center gap-1 border-2 border-current px-1.5 py-0.5 text-[12px] font-[var(--font-mono)]">
-                    <PixelIcon name="command" size={12} />↵
-                  </kbd>
-                }
-                onClick={() => send("sync")}
-                disabled={sendDisabled}
-                title="Encrypt and keep in your private clips"
+            {passwordEnabled && (
+              <PasswordRow value={password} onChange={setPassword} disabled={busy} />
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <PixelSelectPill
+                icon={<PixelIcon name="clock" size={12} />}
+                label="lifetime"
+                value={ttlSeconds}
+                options={LIFETIME_OPTIONS}
+                onChange={setTtlSeconds}
+              />
+              {signedIn ? (
+                <PixelSelectPill
+                  icon={<PixelIcon name="eye" size={12} />}
+                  label="reads"
+                  value={maxReads}
+                  options={READS_OPTIONS}
+                  onChange={setMaxReads}
+                />
+              ) : (
+                <PixelPill
+                  icon={<PixelIcon name="eye" size={12} />}
+                  label="reads"
+                  value="1"
+                  disabled
+                  title="Link burns after one read; sign in for multi-read PINs"
+                />
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setPasswordEnabled((current) => {
+                    const next = !current;
+                    if (!next) setPassword("");
+                    return next;
+                  });
+                }}
+                disabled={busy}
+                className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 text-[12px] font-[var(--font-display)] tracking-widest text-[var(--fg)] uppercase shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
+                aria-pressed={passwordEnabled}
+                title="Optional password gate on top of the URL key"
               >
-                {actionLabel("sync", online ? "Save to my clips" : "Queue for my clips")}
-              </PixelButton>
+                <PixelIcon name="lock" size={12} />
+                password
+                <span className="num opacity-70">{passwordEnabled ? "on" : "off"}</span>
+              </button>
+              {detectedUrl !== null && (
+                <PixelPill
+                  icon={<PixelIcon name="link" size={12} />}
+                  label="url"
+                  value={detectedUrl.hostname}
+                  title="URL detected — receiver will see a link preview"
+                />
+              )}
+              {detectedLanguage !== null && (
+                <PixelPill
+                  icon={<PixelIcon name="code" size={12} />}
+                  label="code"
+                  value={detectedLanguage}
+                  title="Code detected — receiver will see syntax highlighting"
+                />
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={onFilePick}
+                aria-label="Attach a file"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={attachedFile !== null || busy}
+                className="pixel-press inline-flex items-center gap-1 border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-0.5 text-[12px] font-[var(--font-display)] tracking-widest text-[var(--fg)] uppercase shadow-[2px_2px_0_0_var(--border)] disabled:cursor-not-allowed disabled:opacity-50"
+                title="Attach a file (up to 25 MB)"
+              >
+                <PixelIcon name="attachment" size={12} />
+                attach
+              </button>
+            </div>
+
+            {!online && (
+              <OfflineBanner
+                note={
+                  signedIn
+                    ? "Links and PINs need a connection. Clips you save are queued and sync when you reconnect."
+                    : "Reconnect to publish a link."
+                }
+              />
             )}
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <PixelButton
-                variant={signedIn ? "secondary" : "primary"}
-                size="lg"
-                block
-                leading={<PixelIcon name={attachedFile !== null ? "file" : "link"} size={20} />}
-                trailing={
-                  signedIn ? undefined : (
+
+            <div className="flex flex-col gap-3">
+              {signedIn && !largeFile && (
+                // Members: saving to My clips is the default action (Cmd+Enter).
+                // Stays enabled offline — the clip queues locally. Hidden for
+                // large files, which only go out as link/PIN for now.
+                <PixelButton
+                  variant="primary"
+                  size="lg"
+                  block
+                  leading={<PixelIcon name="bookmark" size={20} />}
+                  trailing={
                     <kbd className="ml-1 inline-flex items-center gap-1 border-2 border-current px-1.5 py-0.5 text-[12px] font-[var(--font-mono)]">
                       <PixelIcon name="command" size={12} />↵
                     </kbd>
-                  )
-                }
-                onClick={() => send("link")}
-                disabled={sendDisabled || !online}
-                title={online ? undefined : "Reconnect to publish a link"}
-              >
-                {actionLabel("link", linkBase)}
-              </PixelButton>
-              <PixelButton
-                variant="secondary"
-                size="lg"
-                block
-                leading={<PixelIcon name="lock" size={20} />}
-                onClick={() => send("pin")}
-                disabled={!signedIn || sendDisabled || !online}
-                title={
-                  !online
-                    ? "Reconnect to publish a PIN"
-                    : signedIn
-                      ? "Share by PIN (members)"
-                      : "Sign in to share by PIN"
-                }
-              >
-                {actionLabel("pin", "Get a PIN")}
-              </PixelButton>
-            </div>
-          </div>
-
-          {status.kind === "failed" ? (
-            <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 text-[14px] font-[var(--font-body)]">
-              <span className="font-semibold text-[var(--color-pink)]">Could not send.</span>{" "}
-              <span className="num opacity-90">{status.reason}</span>
-            </p>
-          ) : (
-            <p className="flex items-center gap-2 text-[14px] font-[var(--font-body)] opacity-70">
-              <span className="md:hidden">
-                <WispMascot state="linking" size={2} animate={false} />
-              </span>
-              {signedIn ? (
-                <span>
-                  Only holders of the link or PIN can read it. Pick reads + lifetime above, then Get
-                  a PIN to share with a group.
-                </span>
-              ) : (
-                <span>
-                  Only the link-holder can read it.{" "}
-                  <Link href="/login" className="underline">
-                    Sign in
-                  </Link>{" "}
-                  to share by PIN — easier for groups.
-                </span>
+                  }
+                  onClick={() => send("sync")}
+                  disabled={sendDisabled}
+                  title="Encrypt and keep in your private clips"
+                >
+                  {actionLabel("sync", online ? "Save to my clips" : "Queue for my clips")}
+                </PixelButton>
               )}
-            </p>
-          )}
-        </div>
-      </PixelCard>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <PixelButton
+                  variant={signedIn && !largeFile ? "secondary" : "primary"}
+                  size="lg"
+                  block
+                  leading={<PixelIcon name={attachedFile !== null ? "file" : "link"} size={20} />}
+                  trailing={
+                    signedIn && !largeFile ? undefined : (
+                      <kbd className="ml-1 inline-flex items-center gap-1 border-2 border-current px-1.5 py-0.5 text-[12px] font-[var(--font-mono)]">
+                        <PixelIcon name="command" size={12} />↵
+                      </kbd>
+                    )
+                  }
+                  onClick={() => send("link")}
+                  disabled={sendDisabled || !online}
+                  title={online ? undefined : "Reconnect to publish a link"}
+                >
+                  {actionLabel("link", linkBase)}
+                </PixelButton>
+                <PixelButton
+                  variant="secondary"
+                  size="lg"
+                  block
+                  leading={<PixelIcon name="lock" size={20} />}
+                  onClick={() => send("pin")}
+                  disabled={!signedIn || sendDisabled || !online}
+                  title={
+                    !online
+                      ? "Reconnect to publish a PIN"
+                      : signedIn
+                        ? "Share by PIN (members)"
+                        : "Sign in to share by PIN"
+                  }
+                >
+                  {actionLabel("pin", "Get a PIN")}
+                </PixelButton>
+              </div>
+            </div>
+
+            {status.kind === "failed" ? (
+              <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 text-[14px] font-[var(--font-body)]">
+                <span className="font-semibold text-[var(--color-pink)]">Could not send.</span>{" "}
+                <span className="num opacity-90">{status.reason}</span>
+              </p>
+            ) : (
+              <p className="flex items-center gap-2 text-[14px] font-[var(--font-body)] opacity-70">
+                <span className="md:hidden">
+                  <WispMascot state="linking" size={2} animate={false} />
+                </span>
+                {signedIn ? (
+                  <span>
+                    Only holders of the link or PIN can read it. Pick reads + lifetime above, then
+                    Get a PIN to share with a group.
+                  </span>
+                ) : (
+                  <span>
+                    Only the link-holder can read it.{" "}
+                    <Link href="/login" className="underline">
+                      Sign in
+                    </Link>{" "}
+                    to share by PIN — easier for groups.
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+        </PixelCard>
+      </div>
     </section>
   );
 }
