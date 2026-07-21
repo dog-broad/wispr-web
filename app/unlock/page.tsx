@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Header } from "@/components/pixel/Header";
 import { Footer } from "@/components/pixel/Footer";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
@@ -20,12 +21,14 @@ export default function UnlockPage() {
             <PixelIcon name="lock" size={12} />
             this session · zero-knowledge
           </PixelBadge>
-          <h1 className="mt-3 font-[var(--font-display)] text-[36px] leading-[1] tracking-tight md:text-[48px]">
+          <h1 className="mt-3 text-[36px] leading-[1] font-[var(--font-display)] tracking-tight md:text-[48px]">
             welcome <span className="text-[var(--color-purple)]">back</span>.
           </h1>
         </section>
         <div className="max-w-[520px]">
-          <PassphrasePrompt />
+          <Suspense fallback={null}>
+            <PassphrasePrompt />
+          </Suspense>
         </div>
       </main>
       <Footer />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
@@ -11,6 +11,11 @@ import { clearKeys, deriveKeys } from "@/lib/crypto/client";
 
 export function PassphrasePrompt() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Return to where the unlock was triggered from; only same-origin relative
+  // paths are honoured so the param can't be used as an open redirect.
+  const rawNext = searchParams.get("next");
+  const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
   const [salts, setSalts] = useState<{ auth: Uint8Array; master: Uint8Array } | null>(null);
   const [passphrase, setPassphrase] = useState("");
   const [status, setStatus] = useState<"loading" | "ready" | "working">("loading");
@@ -43,7 +48,7 @@ export function PassphrasePrompt() {
       const authToken = await deriveKeys(passphrase, salts.auth, salts.master);
       await unlock(authToken);
       // Correct passphrase — the KEK is now held in the worker for this tab.
-      router.push("/");
+      router.push(next as Parameters<typeof router.push>[0]);
     } catch (err) {
       // Wrong passphrase derived a bad KEK; drop it before letting them retry.
       await clearKeys();
@@ -63,7 +68,7 @@ export function PassphrasePrompt() {
       <PixelCard variant="lifted" className="p-6 md:p-8">
         <div className="flex items-center gap-4">
           <WispMascot state="idle" size={2} />
-          <p className="font-[var(--font-body)] text-[16px]">loading…</p>
+          <p className="text-[16px] font-[var(--font-body)]">loading…</p>
         </div>
       </PixelCard>
     );
@@ -74,10 +79,10 @@ export function PassphrasePrompt() {
       <div className="mb-5 flex items-center gap-3">
         <WispMascot state="linking" size={2} />
         <div>
-          <h2 className="font-[var(--font-display)] text-[22px] leading-tight">
+          <h2 className="text-[22px] leading-tight font-[var(--font-display)]">
             unlock your clips
           </h2>
-          <p className="mt-1 font-[var(--font-body)] text-[14px] opacity-80">
+          <p className="mt-1 text-[14px] font-[var(--font-body)] opacity-80">
             Enter your passphrase to decrypt this session.
           </p>
         </div>
@@ -85,7 +90,7 @@ export function PassphrasePrompt() {
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-2">
-          <span className="font-[var(--font-body)] text-[14px] opacity-90">passphrase</span>
+          <span className="text-[14px] font-[var(--font-body)] opacity-90">passphrase</span>
           <PixelInput
             type="password"
             autoComplete="current-password"
@@ -98,13 +103,19 @@ export function PassphrasePrompt() {
         {error && (
           <p
             role="alert"
-            className="border-[2px] border-[var(--color-pink)] bg-[color-mix(in_srgb,var(--color-pink)_15%,transparent)] px-3 py-2 font-[var(--font-body)] text-[14px]"
+            className="border-[2px] border-[var(--color-pink)] bg-[color-mix(in_srgb,var(--color-pink)_15%,transparent)] px-3 py-2 text-[14px] font-[var(--font-body)]"
           >
             {error}
           </p>
         )}
 
-        <PixelButton type="submit" variant="secondary" size="md" block disabled={status === "working"}>
+        <PixelButton
+          type="submit"
+          variant="secondary"
+          size="md"
+          block
+          disabled={status === "working"}
+        >
           {status === "working" ? "unlocking…" : "unlock"}
         </PixelButton>
       </form>
