@@ -16,6 +16,17 @@ const SCRIPT_SRC =
     ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
     : "script-src 'self' 'unsafe-inline'";
 
+// ``'self'`` covers the same-origin /wispr-api/* HTTP path (Next rewrites it to
+// the upstream API). The wss:// entries name the hosts the browser opens raw
+// WebSockets to — Next rewrites can't proxy WS upgrades, so each WS-base
+// hostname must be listed explicitly. wispr-api.duckdns.org is the primary
+// path; the api.wispr.rushyendra.dev entry stays as a transitional fallback.
+// Dev only: also allow the local API host so pair/watch/sync WS + fetch reach
+// ws://localhost:8000 without loosening the production policy.
+const CONNECT_SRC =
+  "connect-src 'self' wss://wispr-api.duckdns.org wss://api.wispr.rushyendra.dev https://api.wispr.rushyendra.dev" +
+  (process.env.NODE_ENV === "development" ? " ws://localhost:8000 http://localhost:8000" : "");
+
 const SECURITY_HEADERS = [
   {
     key: "Strict-Transport-Security",
@@ -38,13 +49,7 @@ const SECURITY_HEADERS = [
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self'",
       "img-src 'self' data: blob:",
-      // ``'self'`` covers the same-origin /wispr-api/* HTTP path (which
-      // Next rewrites to the upstream API). The wss:// entries name the
-      // hosts the browser opens raw WebSockets to — Next rewrites can't
-      // proxy WS upgrades, so each WS-base hostname must be listed
-      // explicitly. wispr-api.duckdns.org is the primary path; the
-      // api.wispr.rushyendra.dev entry stays as a transitional fallback.
-      "connect-src 'self' wss://wispr-api.duckdns.org wss://api.wispr.rushyendra.dev https://api.wispr.rushyendra.dev",
+      CONNECT_SRC,
       "worker-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
