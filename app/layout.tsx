@@ -4,6 +4,7 @@ import { Scanlines } from "@/components/pixel/Scanlines";
 import { DitherBg } from "@/components/pixel/DitherBg";
 import { ThemeBootstrap } from "@/components/pixel/ThemeBootstrap";
 import { GlobalShortcuts } from "@/components/GlobalShortcuts";
+import { OfflineSync } from "@/components/OfflineSync";
 import "./globals.css";
 
 const silkscreen = Silkscreen({
@@ -89,6 +90,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="relative min-h-screen">
         <ThemeBootstrap />
         <GlobalShortcuts />
+        <OfflineSync />
         <DitherBg />
         {children}
         <Scanlines />
