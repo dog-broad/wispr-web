@@ -68,8 +68,15 @@ async function decryptMeta(
 async function decryptPinShare(data: PinShareData): Promise<View> {
   try {
     const cryptoMod = await import("@/lib/crypto/client");
-    const { iv, ciphertext } = unpackEnvelope(data.ciphertext);
-    const plaintext = await cryptoMod.decrypt(data.contentKey, ciphertext, iv);
+    const plaintext =
+      data.downloadUrls && data.downloadUrls.length > 0
+        ? await (
+            await import("@/lib/files/download")
+          ).downloadChunks(data.contentKey, data.downloadUrls)
+        : await (async () => {
+            const { iv, ciphertext } = unpackEnvelope(data.ciphertext);
+            return cryptoMod.decrypt(data.contentKey, ciphertext, iv);
+          })();
 
     if (data.contentType === "file") {
       const meta = await decryptMeta(cryptoMod, data);
@@ -86,7 +93,10 @@ async function decryptPinShare(data: PinShareData): Promise<View> {
     let lang: Language | null = null;
     if (data.contentType === "code") {
       const meta = await decryptMeta(cryptoMod, data);
-      if (typeof meta?.lang === "string" && (KNOWN_LANGS as readonly string[]).includes(meta.lang)) {
+      if (
+        typeof meta?.lang === "string" &&
+        (KNOWN_LANGS as readonly string[]).includes(meta.lang)
+      ) {
         lang = meta.lang;
       }
     }
@@ -217,10 +227,8 @@ function renderView(
     case "turnstile":
       return (
         <PixelCard variant="lifted" accent="marigold" className="p-6 md:p-8">
-          <h2 className="font-[var(--font-display)] text-[22px] leading-tight">
-            quick check
-          </h2>
-          <p className="mt-3 font-[var(--font-body)] text-[16px] opacity-90">
+          <h2 className="text-[22px] leading-tight font-[var(--font-display)]">quick check</h2>
+          <p className="mt-3 text-[16px] font-[var(--font-body)] opacity-90">
             {view.failed
               ? "Couldn't verify you're human — try again."
               : "Too many attempts from here. Confirm you're human to continue."}

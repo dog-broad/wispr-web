@@ -14,6 +14,8 @@ export interface PinShareData {
   encryptedMetadata: Uint8Array;
   maxReads: number | null;
   readCount: number;
+  // File-backed shares: presigned GET per R2 chunk instead of inline ciphertext.
+  downloadUrls?: string[];
 }
 
 // Every distinct /r outcome (§7.6.7 #1–7, plus pair + Turnstile) as a tagged
@@ -61,6 +63,9 @@ export async function resolveByPin(
         encryptedMetadata: base64Decode(String(body.encrypted_metadata)),
         maxReads: body.max_reads === null ? null : Number(body.max_reads),
         readCount: Number(body.read_count),
+        ...(Array.isArray(body.download_urls)
+          ? { downloadUrls: body.download_urls.map(String) }
+          : {}),
       },
     };
   }
