@@ -21,7 +21,8 @@ export type WorkerRequest =
     }
   | { id: number; op: "wrap"; dek: Uint8Array }
   | { id: number; op: "unwrap"; wrapped: Uint8Array; iv: Uint8Array }
-  | { id: number; op: "clearKeys" };
+  | { id: number; op: "clearKeys" }
+  | { id: number; op: "hasKeys" };
 
 export type GenerateKeyResult = { key: Uint8Array };
 export type EncryptResult = { ciphertext: Uint8Array; iv: Uint8Array };
@@ -31,6 +32,9 @@ export type DeriveKeysResult = { authToken: Uint8Array };
 export type WrapResult = { wrapped: Uint8Array; iv: Uint8Array };
 export type UnwrapResult = { dek: Uint8Array };
 export type ClearKeysResult = { cleared: true };
+// Whether this tab's worker currently holds a derived master KEK. Lets the
+// main thread tell "unlocked" from "locked" without touching the key itself.
+export type HasKeysResult = { present: boolean };
 
 export type WorkerSuccess =
   | { id: number; ok: true; op: "generateKey"; result: GenerateKeyResult }
@@ -39,7 +43,8 @@ export type WorkerSuccess =
   | { id: number; ok: true; op: "deriveKeys"; result: DeriveKeysResult }
   | { id: number; ok: true; op: "wrap"; result: WrapResult }
   | { id: number; ok: true; op: "unwrap"; result: UnwrapResult }
-  | { id: number; ok: true; op: "clearKeys"; result: ClearKeysResult };
+  | { id: number; ok: true; op: "clearKeys"; result: ClearKeysResult }
+  | { id: number; ok: true; op: "hasKeys"; result: HasKeysResult };
 
 export type WorkerFailure = {
   id: number;

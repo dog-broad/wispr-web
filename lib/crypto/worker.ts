@@ -3,7 +3,7 @@
 // pure primitive functions, posts back a WorkerResponse. Errors are
 // stringified so they cross the worker boundary cleanly.
 
-import { clear, deriveKeys, unwrap, wrap } from "./masterkey";
+import { clear, deriveKeys, hasKeys, unwrap, wrap } from "./masterkey";
 import { decrypt, encrypt, generateKey } from "./primitives";
 import type { WorkerRequest, WorkerResponse } from "./types";
 
@@ -51,6 +51,8 @@ async function handle(req: WorkerRequest): Promise<WorkerResponse> {
       clear();
       return { id: req.id, ok: true, op: "clearKeys", result: { cleared: true } };
     }
+    case "hasKeys":
+      return { id: req.id, ok: true, op: "hasKeys", result: { present: hasKeys() } };
   }
 }
 

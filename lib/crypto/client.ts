@@ -12,6 +12,7 @@ import type {
   DeriveKeysResult,
   EncryptResult,
   GenerateKeyResult,
+  HasKeysResult,
   UnwrapResult,
   WorkerRequest,
   WorkerResponse,
@@ -57,9 +58,7 @@ function unwrap<T>(response: WorkerResponse, expectedOp: WorkerRequest["op"]): T
     throw new Error(`crypto.${expectedOp} failed: ${response.error}`);
   }
   if (response.op !== expectedOp) {
-    throw new Error(
-      `crypto.${expectedOp} got a response for ${response.op} (id ${response.id})`,
-    );
+    throw new Error(`crypto.${expectedOp} got a response for ${response.op} (id ${response.id})`);
   }
   return response.result as T;
 }
@@ -69,10 +68,7 @@ export async function generateKey(): Promise<Uint8Array> {
   return unwrap<GenerateKeyResult>(response, "generateKey").key;
 }
 
-export async function encrypt(
-  key: Uint8Array,
-  plaintext: Uint8Array,
-): Promise<EncryptResult> {
+export async function encrypt(key: Uint8Array, plaintext: Uint8Array): Promise<EncryptResult> {
   const response = await send({ op: "encrypt", key, plaintext });
   return unwrap<EncryptResult>(response, "encrypt");
 }
@@ -115,4 +111,10 @@ export async function unwrapDek(wrapped: Uint8Array, iv: Uint8Array): Promise<Ui
 export async function clearKeys(): Promise<void> {
   const response = await send({ op: "clearKeys" });
   unwrap<ClearKeysResult>(response, "clearKeys");
+}
+
+/** Whether this tab's worker holds a derived master KEK (unlocked). */
+export async function hasKeys(): Promise<boolean> {
+  const response = await send({ op: "hasKeys" });
+  return unwrap<HasKeysResult>(response, "hasKeys").present;
 }
