@@ -12,10 +12,10 @@ import { PixelPill } from "@/components/pixel/PixelPill";
 import { PixelSelectPill } from "@/components/pixel/PixelSelectPill";
 import { PixelTextarea } from "@/components/pixel/PixelInput";
 import { WispMascot } from "@/components/pixel/WispMascot";
-import { encodeMetadata, type ClipMetadata } from "@/lib/clip/metadata";
-import { base64Encode, base64urlEncode, packEnvelope } from "@/lib/crypto/encoding";
+import type { ClipMetadata } from "@/lib/clip/metadata";
+import { base64Encode } from "@/lib/crypto/encoding";
 import { derivePasswordHash, generatePasswordSalt } from "@/lib/crypto/password";
-import { env } from "@/lib/env";
+import { createLinkShare, createPinShare, type PasswordGate } from "@/lib/share/create";
 import { detectLanguage } from "@/lib/highlight/detect";
 import { detectUrl } from "@/lib/url-preview/detect";
 import { useSession } from "@/lib/hooks/useSession";
@@ -136,76 +136,37 @@ export function Composer() {
           return;
         }
 
-        const crypto = await import("@/lib/crypto/client");
-        const key = await crypto.generateKey();
-        const content = await crypto.encrypt(key, contentBytes);
-        const meta = await crypto.encrypt(key, encodeMetadata(metadata));
-
         // Compute the optional password gate: PBKDF2 runs client-side so the
         // raw password never reaches the server — only the derived hash + salt.
-        let passwordHash: string | undefined;
-        let passwordSalt: string | undefined;
+        let passwordGate: PasswordGate | undefined;
         if (passwordEnabled && password.length > 0) {
           const salt = generatePasswordSalt();
           const hash = await derivePasswordHash(password, salt);
-          passwordHash = base64Encode(hash);
-          passwordSalt = base64Encode(salt);
+          passwordGate = { passwordHash: base64Encode(hash), passwordSalt: base64Encode(salt) };
         }
-
-        const ciphertextB64 = base64Encode(packEnvelope(content.iv, content.ciphertext));
-        const metadataB64 = base64Encode(packEnvelope(meta.iv, meta.ciphertext));
-        const passwordFields =
-          passwordHash !== undefined && passwordSalt !== undefined
-            ? { password_hash: passwordHash, password_salt: passwordSalt }
-            : {};
 
         setStatus({ kind: "posting" });
 
         if (mode === "pin") {
-          // Mode 2: the raw content key travels to the server (it wraps it at
-          // rest). max_reads 0 in the picker means unlimited → null on the wire.
+          // max_reads 0 in the picker means unlimited → null on the wire.
           const wireMaxReads = maxReads === 0 ? null : maxReads;
-          const response = await fetch(`${env.apiBaseUrl}/snippets`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              share_mode: "pin_share",
-              content_type: contentType,
-              ciphertext: ciphertextB64,
-              content_key: base64Encode(key),
-              encrypted_metadata: metadataB64,
-              ttl_seconds: ttlSeconds,
-              max_reads: wireMaxReads,
-              ...passwordFields,
-            }),
-          });
-          if (!response.ok) {
-            const detail = await safeErrorBody(response);
-            throw new Error(
-              `${response.status} ${response.statusText}${detail ? ` — ${detail}` : ""}`,
-            );
-          }
-          const { id, pin, expires_at } = (await response.json()) as {
-            id: string;
-            pin: string;
-            expires_at: string;
-          };
-          const url = `${window.location.origin}/r?pin=${pin}`;
-          let copied = false;
-          try {
-            await navigator.clipboard.writeText(url);
-            copied = true;
-          } catch {
-            copied = false;
-          }
+          const { id, pin, url, expiresAt } = await createPinShare(
+            contentType,
+            contentBytes,
+            metadata,
+            {
+              ttlSeconds,
+              maxReads: wireMaxReads,
+              password: passwordGate,
+            },
+          );
           setStatus({
             kind: "sent",
             details: {
               id,
               url,
-              copied,
-              expiresAt: new Date(expires_at),
+              copied: await copyToClipboard(url),
+              expiresAt,
               kind: "pin",
               pin,
               maxReads: wireMaxReads,
@@ -214,44 +175,21 @@ export function Composer() {
           return;
         }
 
-        const response = await fetch(`${env.apiBaseUrl}/snippets`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            share_mode: "link",
-            content_type: contentType,
-            ciphertext: ciphertextB64,
-            encrypted_metadata: metadataB64,
-            ttl_seconds: ttlSeconds,
-            max_reads: 1,
-            ...passwordFields,
-          }),
+        const { id, url, expiresAt } = await createLinkShare(contentType, contentBytes, metadata, {
+          ttlSeconds,
+          maxReads: 1,
+          password: passwordGate,
         });
-        if (!response.ok) {
-          const detail = await safeErrorBody(response);
-          throw new Error(
-            `${response.status} ${response.statusText}${detail ? ` — ${detail}` : ""}`,
-          );
-        }
-        const { id, expires_at } = (await response.json()) as { id: string; expires_at: string };
-
-        const keyB64Url = base64urlEncode(key);
-        const url = `${window.location.origin}/s/${id}#k=${keyB64Url}`;
-
-        // Best-effort copy. Some browsers / contexts deny clipboard writes
-        // (e.g. non-secure contexts in dev); the sent state still shows
-        // the URL and a manual copy button so the user is not stuck.
-        let copied = false;
-        try {
-          await navigator.clipboard.writeText(url);
-          copied = true;
-        } catch {
-          copied = false;
-        }
-
         setStatus({
           kind: "sent",
-          details: { id, url, copied, expiresAt: new Date(expires_at), kind: "link", maxReads: 1 },
+          details: {
+            id,
+            url,
+            copied: await copyToClipboard(url),
+            expiresAt,
+            kind: "link",
+            maxReads: 1,
+          },
         });
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
@@ -638,12 +576,13 @@ function formatBytes(bytes: number): string {
   return `${(kb / 1024).toFixed(1)} MiB`;
 }
 
-async function safeErrorBody(response: Response): Promise<string | null> {
+// Best-effort clipboard write. Some contexts deny it (e.g. non-secure
+// contexts in dev); callers still show the URL + a manual copy button.
+async function copyToClipboard(text: string): Promise<boolean> {
   try {
-    const body = (await response.json()) as { detail?: unknown };
-    if (typeof body.detail === "string") return body.detail;
-    return null;
+    await navigator.clipboard.writeText(text);
+    return true;
   } catch {
-    return null;
+    return false;
   }
 }
