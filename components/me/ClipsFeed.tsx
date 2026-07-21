@@ -12,7 +12,14 @@ import { listSyncSnippets, type ClipContentType, type SyncItem } from "@/lib/api
 import { deleteSnippet } from "@/lib/api/pin";
 import { hasKeys } from "@/lib/crypto/client";
 import { openClip } from "@/lib/sync/clip";
+import { stashPairDraft } from "@/lib/pair/draft";
+import { createLinkShare, createPinShare } from "@/lib/share/create";
+import type { ClipMetadata } from "@/lib/clip/metadata";
 import type { Language } from "@/lib/highlight/highlight";
+
+// Reshared clips get a sensible default lifetime; the composer is where a user
+// dials in TTL / reads for a fresh share.
+const RESHARE_TTL_SECONDS = 3600;
 
 type Gate = "checking" | "redirecting" | "ready";
 type FeedStatus = "connecting" | "open" | "reconnecting" | "closed";
@@ -237,6 +244,35 @@ export function ClipsFeed() {
   );
 }
 
+type ReshareState =
+  | { kind: "idle" }
+  | { kind: "menu" }
+  | { kind: "working" }
+  | { kind: "link"; url: string }
+  | { kind: "pin"; pin: string; url: string }
+  | { kind: "error"; msg: string };
+
+// Reconstruct the create inputs from an already-decrypted clip: text-likes
+// round-trip through UTF-8, files carry their raw bytes + name/mime.
+function reshareInputs(
+  view: ClipView,
+): { contentType: ClipContentType; bytes: Uint8Array; metadata: ClipMetadata } | null {
+  if (!view.decrypted) return null;
+  if (view.contentType === "file") {
+    if (view.fileBytes === undefined) return null;
+    const metadata: ClipMetadata = { v: 1 };
+    if (view.fileName) metadata.name = view.fileName;
+    if (view.fileMime) metadata.mime = view.fileMime;
+    return { contentType: "file", bytes: view.fileBytes, metadata };
+  }
+  const metadata: ClipMetadata = view.lang ? { v: 1, lang: view.lang } : { v: 1 };
+  return {
+    contentType: view.contentType,
+    bytes: new TextEncoder().encode(view.text ?? ""),
+    metadata,
+  };
+}
+
 function ClipRow({
   view,
   copied,
@@ -250,6 +286,49 @@ function ClipRow({
   onDownload: () => void;
   onDelete: () => void;
 }) {
+  const router = useRouter();
+  const [reshare, setReshare] = useState<ReshareState>({ kind: "idle" });
+  // Pair is a live channel — only text-likes can be pre-loaded into it.
+  const canPair = view.contentType !== "file";
+
+  async function toLink() {
+    const inputs = reshareInputs(view);
+    if (inputs === null) return;
+    setReshare({ kind: "working" });
+    try {
+      const { url } = await createLinkShare(inputs.contentType, inputs.bytes, inputs.metadata, {
+        ttlSeconds: RESHARE_TTL_SECONDS,
+        maxReads: 1,
+      });
+      await copyToClipboard(url);
+      setReshare({ kind: "link", url });
+    } catch (err) {
+      setReshare({ kind: "error", msg: err instanceof Error ? err.message : "reshare failed" });
+    }
+  }
+
+  async function toPin() {
+    const inputs = reshareInputs(view);
+    if (inputs === null) return;
+    setReshare({ kind: "working" });
+    try {
+      const { pin, url } = await createPinShare(inputs.contentType, inputs.bytes, inputs.metadata, {
+        ttlSeconds: RESHARE_TTL_SECONDS,
+        maxReads: null,
+      });
+      await copyToClipboard(url);
+      setReshare({ kind: "pin", pin, url });
+    } catch (err) {
+      setReshare({ kind: "error", msg: err instanceof Error ? err.message : "reshare failed" });
+    }
+  }
+
+  function toPair() {
+    if (view.text === undefined) return;
+    stashPairDraft(view.text);
+    router.push("/pair");
+  }
+
   return (
     <PixelCard variant="lifted">
       <div className="flex flex-col gap-3">
@@ -270,6 +349,15 @@ function ClipRow({
             {view.decrypted && view.contentType === "file" && (
               <IconAction label="download" icon="download" onClick={onDownload} />
             )}
+            {view.decrypted && (
+              <IconAction
+                label="reshare"
+                icon="arrow-right"
+                onClick={() =>
+                  setReshare((r) => (r.kind === "idle" ? { kind: "menu" } : { kind: "idle" }))
+                }
+              />
+            )}
             <IconAction label="delete" icon="delete" onClick={onDelete} tone="danger" />
           </div>
         </div>
@@ -287,9 +375,114 @@ function ClipRow({
             This clip was saved under a different passphrase and can&apos;t be read in this session.
           </p>
         )}
+
+        {reshare.kind !== "idle" && (
+          <ResharePanel
+            state={reshare}
+            canPair={canPair}
+            onLink={() => void toLink()}
+            onPin={() => void toPin()}
+            onPair={toPair}
+            onCopy={() => {
+              const url = reshare.kind === "link" || reshare.kind === "pin" ? reshare.url : null;
+              if (url) void copyToClipboard(url);
+            }}
+            onClose={() => setReshare({ kind: "idle" })}
+          />
+        )}
       </div>
     </PixelCard>
   );
+}
+
+function ResharePanel({
+  state,
+  canPair,
+  onLink,
+  onPin,
+  onPair,
+  onCopy,
+  onClose,
+}: {
+  state: ReshareState;
+  canPair: boolean;
+  onLink: () => void;
+  onPin: () => void;
+  onPair: () => void;
+  onCopy: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 border-[2px] border-[var(--color-purple)] bg-[var(--bg-sunk)] p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[12px] font-[var(--font-display)] tracking-widest uppercase opacity-80">
+          re-send as
+        </span>
+        <IconAction label="close" icon="close" onClick={onClose} />
+      </div>
+
+      {state.kind === "working" ? (
+        <p className="text-[14px] font-[var(--font-body)] opacity-80">encrypting…</p>
+      ) : state.kind === "link" || state.kind === "pin" ? (
+        <div className="flex flex-col gap-2">
+          {state.kind === "pin" && (
+            <p className="text-[14px] font-[var(--font-body)]">
+              PIN <span className="num text-[16px] font-[var(--font-mono)]">{state.pin}</span>
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <code className="min-w-0 flex-1 truncate border-[2px] border-[var(--border)] bg-[var(--bg-lifted)] px-2 py-1 text-[12px]">
+              {state.url}
+            </code>
+            <IconAction label="copy" icon="copy" onClick={onCopy} />
+          </div>
+          <p className="text-[12px] font-[var(--font-body)] opacity-60">
+            copied to clipboard · expires in 1 hr
+          </p>
+        </div>
+      ) : state.kind === "error" ? (
+        <p className="text-[14px] font-[var(--font-body)] text-[var(--color-pink)]">{state.msg}</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <PixelButton
+            variant="secondary"
+            size="sm"
+            leading={<PixelIcon name="link" size={12} />}
+            onClick={onLink}
+          >
+            Link
+          </PixelButton>
+          <PixelButton
+            variant="secondary"
+            size="sm"
+            leading={<PixelIcon name="lock" size={12} />}
+            onClick={onPin}
+          >
+            PIN
+          </PixelButton>
+          {canPair && (
+            <PixelButton
+              variant="secondary"
+              size="sm"
+              leading={<PixelIcon name="devices" size={12} />}
+              onClick={onPair}
+            >
+              Pair
+            </PixelButton>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Best-effort clipboard write; denied in non-secure contexts (dev).
+async function copyToClipboard(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // The URL stays visible in the panel for manual copy.
+  }
 }
 
 function IconAction({
