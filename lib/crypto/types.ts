@@ -4,13 +4,14 @@
 
 export type WorkerRequest =
   | { id: number; op: "generateKey" }
-  | { id: number; op: "encrypt"; key: Uint8Array; plaintext: Uint8Array }
+  | { id: number; op: "encrypt"; key: Uint8Array; plaintext: Uint8Array; aad?: Uint8Array }
   | {
       id: number;
       op: "decrypt";
       key: Uint8Array;
       ciphertext: Uint8Array;
       iv: Uint8Array;
+      aad?: Uint8Array;
     }
   | {
       id: number;

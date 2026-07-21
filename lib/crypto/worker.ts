@@ -28,11 +28,11 @@ async function handle(req: WorkerRequest): Promise<WorkerResponse> {
     case "generateKey":
       return { id: req.id, ok: true, op: "generateKey", result: { key: generateKey() } };
     case "encrypt": {
-      const out = await encrypt(req.key, req.plaintext);
+      const out = await encrypt(req.key, req.plaintext, req.aad);
       return { id: req.id, ok: true, op: "encrypt", result: out };
     }
     case "decrypt": {
-      const plaintext = await decrypt(req.key, req.ciphertext, req.iv);
+      const plaintext = await decrypt(req.key, req.ciphertext, req.iv, req.aad);
       return { id: req.id, ok: true, op: "decrypt", result: { plaintext } };
     }
     case "deriveKeys": {

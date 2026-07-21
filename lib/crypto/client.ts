@@ -68,8 +68,14 @@ export async function generateKey(): Promise<Uint8Array> {
   return unwrap<GenerateKeyResult>(response, "generateKey").key;
 }
 
-export async function encrypt(key: Uint8Array, plaintext: Uint8Array): Promise<EncryptResult> {
-  const response = await send({ op: "encrypt", key, plaintext });
+export async function encrypt(
+  key: Uint8Array,
+  plaintext: Uint8Array,
+  aad?: Uint8Array,
+): Promise<EncryptResult> {
+  const response = await send(
+    aad === undefined ? { op: "encrypt", key, plaintext } : { op: "encrypt", key, plaintext, aad },
+  );
   return unwrap<EncryptResult>(response, "encrypt");
 }
 
@@ -77,8 +83,13 @@ export async function decrypt(
   key: Uint8Array,
   ciphertext: Uint8Array,
   iv: Uint8Array,
+  aad?: Uint8Array,
 ): Promise<Uint8Array> {
-  const response = await send({ op: "decrypt", key, ciphertext, iv });
+  const response = await send(
+    aad === undefined
+      ? { op: "decrypt", key, ciphertext, iv }
+      : { op: "decrypt", key, ciphertext, iv, aad },
+  );
   return unwrap<DecryptResult>(response, "decrypt").plaintext;
 }
 

@@ -72,11 +72,34 @@ describe("decrypt", () => {
   });
 });
 
+describe("additional authenticated data (AAD)", () => {
+  const aad = (n: number) => new Uint8Array([0, 0, 0, n]);
+
+  test("round-trips when the same AAD is supplied", async () => {
+    const key = generateKey();
+    const { ciphertext, iv } = await encrypt(key, utf8.encode("chunk 5"), aad(5));
+    const decrypted = await decrypt(key, ciphertext, iv, aad(5));
+    expect(utf8Decode.decode(decrypted)).toBe("chunk 5");
+  });
+
+  test("rejects when the AAD differs (e.g. a reordered chunk index)", async () => {
+    const key = generateKey();
+    const { ciphertext, iv } = await encrypt(key, utf8.encode("chunk 5"), aad(5));
+    await expect(decrypt(key, ciphertext, iv, aad(6))).rejects.toThrow();
+  });
+
+  test("rejects when AAD was used at encrypt but omitted at decrypt", async () => {
+    const key = generateKey();
+    const { ciphertext, iv } = await encrypt(key, utf8.encode("bound"), aad(1));
+    await expect(decrypt(key, ciphertext, iv)).rejects.toThrow();
+  });
+});
+
 describe("input validation", () => {
   test("encrypt rejects wrong-sized keys", async () => {
-    await expect(
-      encrypt(new Uint8Array(16), utf8.encode("x")),
-    ).rejects.toThrow(/key must be 32 bytes/);
+    await expect(encrypt(new Uint8Array(16), utf8.encode("x"))).rejects.toThrow(
+      /key must be 32 bytes/,
+    );
   });
 
   test("decrypt rejects wrong-sized keys", async () => {
