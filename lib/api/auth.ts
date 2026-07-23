@@ -58,10 +58,9 @@ export interface VerifyResult {
  * Throws {@link AuthError} with status 400 when the link is spent or expired.
  */
 export async function verifyMagicLink(token: string): Promise<VerifyResult> {
-  const response = await fetch(
-    `${env.apiBaseUrl}/auth/verify?token=${encodeURIComponent(token)}`,
-    { credentials: "include" },
-  );
+  const response = await fetch(`${env.apiBaseUrl}/auth/verify?token=${encodeURIComponent(token)}`, {
+    credentials: "include",
+  });
   if (!response.ok) {
     throw new AuthError(
       (await safeDetail(response)) ?? `${response.status} ${response.statusText}`,
@@ -144,6 +143,49 @@ export async function unlock(authToken: Uint8Array): Promise<void> {
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ auth_token: base64Encode(authToken) }),
+  });
+  if (!response.ok) {
+    throw new AuthError(
+      (await safeDetail(response)) ?? `${response.status} ${response.statusText}`,
+      response.status,
+    );
+  }
+}
+
+export interface RewrappedDek {
+  id: string;
+  wrappedDek: Uint8Array;
+  wrappedDekIv: Uint8Array;
+}
+
+/**
+ * Change the passphrase in one atomic server call: the current auth token
+ * (re-auth) plus the new credential + every Sync DEK re-wrapped with the new
+ * KEK. Throws {@link AuthError}: 401 wrong current passphrase, 423 locked, 409
+ * the Sync set drifted mid-change (refetch + retry).
+ */
+export async function changePassphrase(input: {
+  currentAuthToken: Uint8Array;
+  newAuthToken: Uint8Array;
+  newAuthSalt: Uint8Array;
+  newMasterSalt: Uint8Array;
+  rewrapped: RewrappedDek[];
+}): Promise<void> {
+  const response = await fetch(`${env.apiBaseUrl}/auth/change-passphrase`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      current_auth_token: base64Encode(input.currentAuthToken),
+      new_auth_token: base64Encode(input.newAuthToken),
+      new_auth_credential_salt: base64Encode(input.newAuthSalt),
+      new_master_key_salt: base64Encode(input.newMasterSalt),
+      rewrapped: input.rewrapped.map((r) => ({
+        id: r.id,
+        wrapped_dek: base64Encode(r.wrappedDek),
+        wrapped_dek_iv: base64Encode(r.wrappedDekIv),
+      })),
+    }),
   });
   if (!response.ok) {
     throw new AuthError(

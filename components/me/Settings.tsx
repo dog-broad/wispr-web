@@ -7,8 +7,10 @@ import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { WispMascot } from "@/components/pixel/WispMascot";
-import { getSession, type SessionInfo } from "@/lib/api/auth";
+import { AuthError, getSession, type SessionInfo } from "@/lib/api/auth";
 import { createInvite, listSessions, revokeSession, type DeviceSession } from "@/lib/api/account";
+import { changeMyPassphrase } from "@/lib/account/change-passphrase";
+import { PixelInput } from "@/components/pixel/PixelInput";
 
 type Gate = "loading" | "redirecting" | "ready";
 
@@ -125,9 +127,108 @@ export function Settings() {
         )}
       </SettingsSection>
 
+      {session !== null && !session.needsPassphraseSetup && <ChangePassphraseSection />}
+
       {session?.isAdmin && <InviteSection />}
     </div>
   );
+}
+
+type ChangeState =
+  | { kind: "idle" }
+  | { kind: "working"; rewrapped: number }
+  | { kind: "done" }
+  | { kind: "error"; message: string };
+
+function ChangePassphraseSection() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [state, setState] = useState<ChangeState>({ kind: "idle" });
+
+  const mismatch = confirm.length > 0 && next !== confirm;
+  const canSubmit =
+    current.length > 0 && next.length > 0 && next === confirm && state.kind !== "working";
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!canSubmit) return;
+    setState({ kind: "working", rewrapped: 0 });
+    try {
+      await changeMyPassphrase(current, next, (rewrapped) =>
+        setState({ kind: "working", rewrapped }),
+      );
+      setState({ kind: "done" });
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+    } catch (err) {
+      setState({ kind: "error", message: changeErrorMessage(err) });
+    }
+  }
+
+  return (
+    <SettingsSection title="Passphrase">
+      {state.kind === "done" ? (
+        <p className="border-[2px] border-[var(--color-moss)] bg-[var(--bg-sunk)] px-3 py-2 text-[14px] font-[var(--font-body)]">
+          Passphrase changed. Your clips were re-encrypted; other devices need the new passphrase.
+        </p>
+      ) : (
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          <p className="text-[14px] font-[var(--font-body)] opacity-80">
+            Re-encrypts every saved clip in your browser. There&apos;s no recovery — a forgotten
+            passphrase means lost clips.
+          </p>
+          <PixelInput
+            type="password"
+            autoComplete="current-password"
+            placeholder="current passphrase"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+          />
+          <PixelInput
+            type="password"
+            autoComplete="new-password"
+            placeholder="new passphrase"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+          />
+          <PixelInput
+            type="password"
+            autoComplete="new-password"
+            placeholder="confirm new passphrase"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          {mismatch && (
+            <p className="text-[12px] font-[var(--font-body)] text-[var(--color-pink)]">
+              Passphrases don&apos;t match.
+            </p>
+          )}
+          {state.kind === "error" && (
+            <p
+              role="alert"
+              className="text-[14px] font-[var(--font-body)] text-[var(--color-pink)]"
+            >
+              {state.message}
+            </p>
+          )}
+          <PixelButton type="submit" variant="secondary" size="md" disabled={!canSubmit}>
+            {state.kind === "working" ? `re-encrypting… (${state.rewrapped})` : "Change passphrase"}
+          </PixelButton>
+        </form>
+      )}
+    </SettingsSection>
+  );
+}
+
+function changeErrorMessage(err: unknown): string {
+  if (err instanceof AuthError) {
+    if (err.status === 401) return "That current passphrase doesn't match.";
+    if (err.status === 423) return "Too many attempts — locked for an hour.";
+    if (err.status === 409) return "A clip changed mid-update — try again.";
+  }
+  return "Couldn't change your passphrase. Try again.";
 }
 
 function InviteSection() {
