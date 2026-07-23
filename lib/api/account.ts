@@ -88,6 +88,17 @@ export async function deleteAccount(currentAuthToken: Uint8Array): Promise<void>
   if (!response.ok) throw new AccountError(`${response.status}`, response.status);
 }
 
+/**
+ * Download the account's full clip bundle as raw JSON text. Kept as text (not
+ * parsed) so it can be embedded verbatim into the standalone decryptor. Throws
+ * {@link AccountError}: 429 when the 3/day limit is hit.
+ */
+export async function fetchExportBundle(): Promise<string> {
+  const response = await fetch(`${env.apiBaseUrl}/me/export`, { credentials: "include" });
+  if (!response.ok) throw new AccountError(`${response.status}`, response.status);
+  return response.text();
+}
+
 /** Mint an invite code (admin only). Throws {@link AccountError} 403 otherwise. */
 export async function createInvite(): Promise<string> {
   const response = await fetch(`${env.apiBaseUrl}/me/invites`, {
