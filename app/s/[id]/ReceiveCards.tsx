@@ -78,7 +78,17 @@ export function DecryptingCard() {
 
 // ----- OK (decrypted content) ----------------------------------------
 
-export function OkCard({ text, lang }: { text: string; lang: Language | null }) {
+export function OkCard({
+  text,
+  lang,
+  extraAction,
+}: {
+  text: string;
+  lang: Language | null;
+  // Optional trailing action rendered in the button row — PIN receives pass a
+  // report control here; Link receives leave it undefined.
+  extraAction?: ReactNode;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -119,6 +129,7 @@ export function OkCard({ text, lang }: { text: string; lang: Language | null }) 
             >
               {copied ? "Copied" : "Copy"}
             </PixelButton>
+            {extraAction}
           </div>
           <p className="font-[var(--font-body)] text-[14px] opacity-70">
             Self-destructs when you leave this page.
@@ -163,10 +174,12 @@ export function FileOkCard({
   blob,
   name,
   mime,
+  extraAction,
 }: {
   blob: Blob;
   name: string;
   mime: string;
+  extraAction?: ReactNode;
 }) {
   // The object URL must outlive the user's click on the download link
   // but get revoked on unmount to release the browser-side allocation.
@@ -221,6 +234,7 @@ export function FileOkCard({
                 Download
               </a>
             )}
+            {extraAction}
           </div>
           <p className="font-[var(--font-body)] text-[14px] opacity-70">
             Self-destructs when you leave this page.
@@ -259,7 +273,7 @@ type UrlPreviewState =
   | { kind: "ready"; preview: OgPreview }
   | { kind: "unavailable" };
 
-export function UrlOkCard({ url }: { url: URL }) {
+export function UrlOkCard({ url, extraAction }: { url: URL; extraAction?: ReactNode }) {
   const [copied, setCopied] = useState(false);
   const [preview, setPreview] = useState<UrlPreviewState>({ kind: "idle" });
 
@@ -322,6 +336,7 @@ export function UrlOkCard({ url }: { url: URL }) {
             >
               {copied ? "Copied" : "Copy URL"}
             </PixelButton>
+            {extraAction}
           </div>
           <p className="font-[var(--font-body)] text-[14px] opacity-70">
             Self-destructs when you leave this page.

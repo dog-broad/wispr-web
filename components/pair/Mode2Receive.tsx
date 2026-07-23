@@ -11,6 +11,7 @@ import {
   PasswordPromptCard,
   UrlOkCard,
 } from "@/app/s/[id]/ReceiveCards";
+import { ReportControl } from "@/components/pair/ReportControl";
 import { Turnstile } from "@/components/auth/Turnstile";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelCard } from "@/components/pixel/PixelCard";
@@ -28,9 +29,9 @@ import { detectUrl } from "@/lib/url-preview/detect";
 
 type View =
   | { kind: "decrypting" }
-  | { kind: "ok"; text: string; lang: Language | null }
-  | { kind: "ok-url"; url: URL }
-  | { kind: "ok-file"; blob: Blob; name: string; mime: string }
+  | { kind: "ok"; text: string; lang: Language | null; snippetId: string }
+  | { kind: "ok-url"; url: URL; snippetId: string }
+  | { kind: "ok-file"; blob: Blob; name: string; mime: string; snippetId: string }
   | { kind: "password"; salt: Uint8Array; wrongAttempts: number; verifying: boolean }
   | { kind: "gone"; reason: PinGoneReason }
   | { kind: "unknown" }
@@ -82,13 +83,19 @@ async function decryptPinShare(data: PinShareData): Promise<View> {
       const meta = await decryptMeta(cryptoMod, data);
       const name = typeof meta?.name === "string" ? meta.name : "download";
       const mime = typeof meta?.mime === "string" ? meta.mime : "application/octet-stream";
-      return { kind: "ok-file", blob: new Blob([plaintext], { type: mime }), name, mime };
+      return {
+        kind: "ok-file",
+        blob: new Blob([plaintext], { type: mime }),
+        name,
+        mime,
+        snippetId: data.id,
+      };
     }
 
     const text = new TextDecoder().decode(plaintext);
     if (data.contentType === "url") {
       const url = detectUrl(text);
-      if (url !== null) return { kind: "ok-url", url };
+      if (url !== null) return { kind: "ok-url", url, snippetId: data.id };
     }
     let lang: Language | null = null;
     if (data.contentType === "code") {
@@ -100,7 +107,7 @@ async function decryptPinShare(data: PinShareData): Promise<View> {
         lang = meta.lang;
       }
     }
-    return { kind: "ok", text, lang };
+    return { kind: "ok", text, lang, snippetId: data.id };
   } catch {
     // A decrypt failure here means the server's content key didn't match the
     // ciphertext — a server-side fault, not a wrong client key (Mode 2 keys
@@ -206,11 +213,26 @@ function renderView(
     case "decrypting":
       return <DecryptingCard />;
     case "ok":
-      return <OkCard text={view.text} lang={view.lang} />;
+      return (
+        <OkCard
+          text={view.text}
+          lang={view.lang}
+          extraAction={<ReportControl snippetId={view.snippetId} />}
+        />
+      );
     case "ok-url":
-      return <UrlOkCard url={view.url} />;
+      return (
+        <UrlOkCard url={view.url} extraAction={<ReportControl snippetId={view.snippetId} />} />
+      );
     case "ok-file":
-      return <FileOkCard blob={view.blob} name={view.name} mime={view.mime} />;
+      return (
+        <FileOkCard
+          blob={view.blob}
+          name={view.name}
+          mime={view.mime}
+          extraAction={<ReportControl snippetId={view.snippetId} />}
+        />
+      );
     case "password":
       return (
         <PasswordPromptCard
