@@ -8,8 +8,16 @@ import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { WispMascot } from "@/components/pixel/WispMascot";
 import { AuthError, getSession, type SessionInfo } from "@/lib/api/auth";
-import { createInvite, listSessions, revokeSession, type DeviceSession } from "@/lib/api/account";
+import {
+  AccountError,
+  changeEmail,
+  createInvite,
+  listSessions,
+  revokeSession,
+  type DeviceSession,
+} from "@/lib/api/account";
 import { changeMyPassphrase } from "@/lib/account/change-passphrase";
+import { deriveAuthToken } from "@/lib/crypto/client";
 import { PixelInput } from "@/components/pixel/PixelInput";
 
 type Gate = "loading" | "redirecting" | "ready";
@@ -127,6 +135,10 @@ export function Settings() {
         )}
       </SettingsSection>
 
+      {session !== null && !session.needsPassphraseSetup && session.authCredentialSalt !== null && (
+        <ChangeEmailSection authSalt={session.authCredentialSalt} />
+      )}
+
       {session !== null && !session.needsPassphraseSetup && <ChangePassphraseSection />}
 
       {session?.isAdmin && <InviteSection />}
@@ -139,6 +151,86 @@ type ChangeState =
   | { kind: "working"; rewrapped: number }
   | { kind: "done" }
   | { kind: "error"; message: string };
+
+type EmailState =
+  | { kind: "idle" }
+  | { kind: "working" }
+  | { kind: "sent"; email: string }
+  | { kind: "error"; message: string };
+
+function ChangeEmailSection({ authSalt }: { authSalt: Uint8Array }) {
+  const [email, setEmail] = useState("");
+  const [passphrase, setPassphrase] = useState("");
+  const [state, setState] = useState<EmailState>({ kind: "idle" });
+
+  const canSubmit = email.length > 0 && passphrase.length > 0 && state.kind !== "working";
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!canSubmit) return;
+    setState({ kind: "working" });
+    try {
+      const token = await deriveAuthToken(passphrase, authSalt);
+      await changeEmail(email, token);
+      setState({ kind: "sent", email });
+      setPassphrase("");
+    } catch (err) {
+      setState({ kind: "error", message: emailErrorMessage(err) });
+    }
+  }
+
+  return (
+    <SettingsSection title="Email">
+      {state.kind === "sent" ? (
+        <p className="border-[2px] border-[var(--color-moss)] bg-[var(--bg-sunk)] px-3 py-2 text-[14px] font-[var(--font-body)]">
+          Check <span className="font-semibold">{state.email}</span> for a link to confirm the
+          change. Until then, your current email still works.
+        </p>
+      ) : (
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          <p className="text-[14px] font-[var(--font-body)] opacity-80">
+            We&apos;ll email a confirmation link to the new address; your old address is notified.
+          </p>
+          <PixelInput
+            type="email"
+            autoComplete="email"
+            placeholder="new email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <PixelInput
+            type="password"
+            autoComplete="current-password"
+            placeholder="current passphrase"
+            value={passphrase}
+            onChange={(e) => setPassphrase(e.target.value)}
+          />
+          {state.kind === "error" && (
+            <p
+              role="alert"
+              className="text-[14px] font-[var(--font-body)] text-[var(--color-pink)]"
+            >
+              {state.message}
+            </p>
+          )}
+          <PixelButton type="submit" variant="secondary" size="md" disabled={!canSubmit}>
+            {state.kind === "working" ? "sending…" : "Change email"}
+          </PixelButton>
+        </form>
+      )}
+    </SettingsSection>
+  );
+}
+
+function emailErrorMessage(err: unknown): string {
+  if (err instanceof AccountError) {
+    if (err.status === 401) return "That passphrase doesn't match.";
+    if (err.status === 423) return "Too many attempts — locked for an hour.";
+    if (err.status === 409) return "That email is already in use.";
+    if (err.status === 400) return "That's already your email.";
+  }
+  return "Couldn't start the email change. Try again.";
+}
 
 function ChangePassphraseSection() {
   const [current, setCurrent] = useState("");

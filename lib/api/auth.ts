@@ -51,6 +51,8 @@ export async function requestMagicLink(input: RequestMagicLinkInput): Promise<vo
 export interface VerifyResult {
   email: string;
   needsPassphraseSetup: boolean;
+  // True when the link confirmed an email change rather than a sign-in.
+  emailChanged: boolean;
 }
 
 /**
@@ -70,8 +72,13 @@ export async function verifyMagicLink(token: string): Promise<VerifyResult> {
   const body = (await response.json()) as {
     email: string;
     needs_passphrase_setup: boolean;
+    email_changed?: boolean;
   };
-  return { email: body.email, needsPassphraseSetup: body.needs_passphrase_setup };
+  return {
+    email: body.email,
+    needsPassphraseSetup: body.needs_passphrase_setup,
+    emailChanged: body.email_changed ?? false,
+  };
 }
 
 /**
