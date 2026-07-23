@@ -73,6 +73,21 @@ export async function changeEmail(newEmail: string, currentAuthToken: Uint8Array
   if (!response.ok) throw new AccountError(`${response.status}`, response.status);
 }
 
+/**
+ * Permanently delete the account after re-auth. On success the server has
+ * destroyed all content and cleared the session cookie. Throws
+ * {@link AccountError}: 401 wrong passphrase, 423 locked.
+ */
+export async function deleteAccount(currentAuthToken: Uint8Array): Promise<void> {
+  const response = await fetch(`${env.apiBaseUrl}/me/account`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ current_auth_token: base64Encode(currentAuthToken) }),
+  });
+  if (!response.ok) throw new AccountError(`${response.status}`, response.status);
+}
+
 /** Mint an invite code (admin only). Throws {@link AccountError} 403 otherwise. */
 export async function createInvite(): Promise<string> {
   const response = await fetch(`${env.apiBaseUrl}/me/invites`, {
