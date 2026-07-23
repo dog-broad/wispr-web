@@ -3,7 +3,18 @@
 // pure primitive functions, posts back a WorkerResponse. Errors are
 // stringified so they cross the worker boundary cleanly.
 
-import { clear, deriveKeys, hasKeys, unwrap, wrap } from "./masterkey";
+import {
+  clear,
+  commitNext,
+  deriveAuthToken,
+  deriveKeys,
+  deriveNext,
+  discardNext,
+  hasKeys,
+  rewrapToNext,
+  unwrap,
+  wrap,
+} from "./masterkey";
 import { decrypt, encrypt, generateKey } from "./primitives";
 import type { WorkerRequest, WorkerResponse } from "./types";
 
@@ -46,6 +57,26 @@ async function handle(req: WorkerRequest): Promise<WorkerResponse> {
     case "unwrap": {
       const dek = await unwrap(req.wrapped, req.iv);
       return { id: req.id, ok: true, op: "unwrap", result: { dek } };
+    }
+    case "deriveAuthToken": {
+      const result = await deriveAuthToken(req.passphrase, req.authSalt);
+      return { id: req.id, ok: true, op: "deriveAuthToken", result };
+    }
+    case "deriveNextKey": {
+      const result = await deriveNext(req.passphrase, req.authSalt, req.masterSalt);
+      return { id: req.id, ok: true, op: "deriveNextKey", result };
+    }
+    case "rewrapToNext": {
+      const result = await rewrapToNext(req.wrapped, req.iv);
+      return { id: req.id, ok: true, op: "rewrapToNext", result };
+    }
+    case "commitNextKey": {
+      commitNext();
+      return { id: req.id, ok: true, op: "commitNextKey", result: { committed: true } };
+    }
+    case "discardNextKey": {
+      discardNext();
+      return { id: req.id, ok: true, op: "discardNextKey", result: { discarded: true } };
     }
     case "clearKeys": {
       clear();

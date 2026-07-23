@@ -22,6 +22,17 @@ export type WorkerRequest =
     }
   | { id: number; op: "wrap"; dek: Uint8Array }
   | { id: number; op: "unwrap"; wrapped: Uint8Array; iv: Uint8Array }
+  | { id: number; op: "deriveAuthToken"; passphrase: string; authSalt: Uint8Array }
+  | {
+      id: number;
+      op: "deriveNextKey";
+      passphrase: string;
+      authSalt: Uint8Array;
+      masterSalt: Uint8Array;
+    }
+  | { id: number; op: "rewrapToNext"; wrapped: Uint8Array; iv: Uint8Array }
+  | { id: number; op: "commitNextKey" }
+  | { id: number; op: "discardNextKey" }
   | { id: number; op: "clearKeys" }
   | { id: number; op: "hasKeys" };
 
@@ -32,6 +43,11 @@ export type DecryptResult = { plaintext: Uint8Array };
 export type DeriveKeysResult = { authToken: Uint8Array };
 export type WrapResult = { wrapped: Uint8Array; iv: Uint8Array };
 export type UnwrapResult = { dek: Uint8Array };
+export type DeriveAuthTokenResult = { authToken: Uint8Array };
+export type DeriveNextKeyResult = { authToken: Uint8Array };
+export type RewrapResult = { wrapped: Uint8Array; iv: Uint8Array };
+export type CommitNextKeyResult = { committed: true };
+export type DiscardNextKeyResult = { discarded: true };
 export type ClearKeysResult = { cleared: true };
 // Whether this tab's worker currently holds a derived master KEK. Lets the
 // main thread tell "unlocked" from "locked" without touching the key itself.
@@ -44,6 +60,11 @@ export type WorkerSuccess =
   | { id: number; ok: true; op: "deriveKeys"; result: DeriveKeysResult }
   | { id: number; ok: true; op: "wrap"; result: WrapResult }
   | { id: number; ok: true; op: "unwrap"; result: UnwrapResult }
+  | { id: number; ok: true; op: "deriveAuthToken"; result: DeriveAuthTokenResult }
+  | { id: number; ok: true; op: "deriveNextKey"; result: DeriveNextKeyResult }
+  | { id: number; ok: true; op: "rewrapToNext"; result: RewrapResult }
+  | { id: number; ok: true; op: "commitNextKey"; result: CommitNextKeyResult }
+  | { id: number; ok: true; op: "discardNextKey"; result: DiscardNextKeyResult }
   | { id: number; ok: true; op: "clearKeys"; result: ClearKeysResult }
   | { id: number; ok: true; op: "hasKeys"; result: HasKeysResult };
 

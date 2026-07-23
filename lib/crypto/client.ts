@@ -8,11 +8,16 @@
 
 import type {
   ClearKeysResult,
+  CommitNextKeyResult,
   DecryptResult,
+  DeriveAuthTokenResult,
   DeriveKeysResult,
+  DeriveNextKeyResult,
+  DiscardNextKeyResult,
   EncryptResult,
   GenerateKeyResult,
   HasKeysResult,
+  RewrapResult,
   UnwrapResult,
   WorkerRequest,
   WorkerResponse,
@@ -116,6 +121,45 @@ export async function wrapDek(dek: Uint8Array): Promise<WrapResult> {
 export async function unwrapDek(wrapped: Uint8Array, iv: Uint8Array): Promise<Uint8Array> {
   const response = await send({ op: "unwrap", wrapped, iv });
   return unwrap<UnwrapResult>(response, "unwrap").dek;
+}
+
+/** Derive only the auth token from a passphrase — no KEK side effects. For
+ *  re-auth (proving the current passphrase) without disturbing the held KEK. */
+export async function deriveAuthToken(
+  passphrase: string,
+  authSalt: Uint8Array,
+): Promise<Uint8Array> {
+  const response = await send({ op: "deriveAuthToken", passphrase, authSalt });
+  return unwrap<DeriveAuthTokenResult>(response, "deriveAuthToken").authToken;
+}
+
+/** Derive a pending "next" KEK from a new passphrase (for a passphrase change).
+ *  The current KEK stays active until commitNextKey. Returns the new auth token. */
+export async function deriveNextKey(
+  passphrase: string,
+  authSalt: Uint8Array,
+  masterSalt: Uint8Array,
+): Promise<Uint8Array> {
+  const response = await send({ op: "deriveNextKey", passphrase, authSalt, masterSalt });
+  return unwrap<DeriveNextKeyResult>(response, "deriveNextKey").authToken;
+}
+
+/** Re-wrap one DEK from the current KEK to the pending next KEK. */
+export async function rewrapToNext(wrapped: Uint8Array, iv: Uint8Array): Promise<RewrapResult> {
+  const response = await send({ op: "rewrapToNext", wrapped, iv });
+  return unwrap<RewrapResult>(response, "rewrapToNext");
+}
+
+/** Promote the next KEK to current — call once the server accepts the change. */
+export async function commitNextKey(): Promise<void> {
+  const response = await send({ op: "commitNextKey" });
+  unwrap<CommitNextKeyResult>(response, "commitNextKey");
+}
+
+/** Drop the pending next KEK — call if the change fails. */
+export async function discardNextKey(): Promise<void> {
+  const response = await send({ op: "discardNextKey" });
+  unwrap<DiscardNextKeyResult>(response, "discardNextKey");
 }
 
 /** Drop the master KEK from worker memory (lock / logout). */
