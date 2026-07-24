@@ -39,12 +39,45 @@ export interface OpenedClip {
 }
 
 /** Unwrap a clip's DEK with the master KEK, then decrypt content + metadata.
+ *  For a storage-backed file clip the content lives in R2, so ``content`` comes
+ *  back empty and the bytes are fetched separately via {@link downloadClipFile}.
  *  Rejects if the passphrase isn't unlocked or the KEK doesn't match. */
 export async function openClip(item: SyncItem): Promise<OpenedClip> {
   const dek = await unwrapDek(item.wrappedDek, item.wrappedDekIv);
-  const content = await decryptEnvelope(dek, item.ciphertext);
   const metaBytes = await decryptEnvelope(dek, item.encryptedMetadata);
-  return { content, metadata: decodeMetadata(metaBytes) };
+  const metadata = decodeMetadata(metaBytes);
+  if (item.chunkCount !== null) {
+    return { content: new Uint8Array(0), metadata };
+  }
+  const content = await decryptEnvelope(dek, item.ciphertext);
+  return { content, metadata };
+}
+
+/** Fetch + decrypt a storage-backed file clip's chunks in order. The DEK is
+ *  re-unwrapped from the item, so the plaintext bytes only ever exist in this
+ *  tab. ``urls`` come from fetchSyncFileUrls. */
+export async function downloadClipFile(item: SyncItem, urls: string[]): Promise<Uint8Array> {
+  const dek = await unwrapDek(item.wrappedDek, item.wrappedDekIv);
+  const { downloadChunks } = await import("@/lib/files/download");
+  return downloadChunks(dek, urls);
+}
+
+export interface SealedFileMeta {
+  // Raw DEK used to chunk-encrypt the file bytes before upload.
+  dek: Uint8Array;
+  wrappedDek: Uint8Array;
+  wrappedDekIv: Uint8Array;
+  encryptedMetadata: Uint8Array;
+}
+
+/** Mint a fresh DEK and seal a file clip's metadata under it, returning the DEK
+ *  so the caller can chunk-encrypt the file bytes with the same key. The content
+ *  itself is uploaded to R2 separately (never sealed inline). */
+export async function sealClipFileMeta(metadata: ClipMetadata): Promise<SealedFileMeta> {
+  const dek = await generateKey();
+  const sealedMeta = await encryptWith(dek, encodeMetadata(metadata));
+  const { wrapped, iv } = await wrapDek(dek);
+  return { dek, wrappedDek: wrapped, wrappedDekIv: iv, encryptedMetadata: sealedMeta };
 }
 
 async function encryptWith(key: Uint8Array, plaintext: Uint8Array): Promise<Uint8Array> {

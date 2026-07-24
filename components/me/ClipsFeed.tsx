@@ -8,10 +8,15 @@ import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { WispMascot } from "@/components/pixel/WispMascot";
 import { getSession } from "@/lib/api/auth";
-import { listSyncSnippets, type ClipContentType, type SyncItem } from "@/lib/api/sync";
+import {
+  fetchSyncFileUrls,
+  listSyncSnippets,
+  type ClipContentType,
+  type SyncItem,
+} from "@/lib/api/sync";
 import { deleteSnippet } from "@/lib/api/pin";
 import { hasKeys } from "@/lib/crypto/client";
-import { openClip } from "@/lib/sync/clip";
+import { downloadClipFile, openClip } from "@/lib/sync/clip";
 import { queueCount } from "@/lib/sync/queue";
 import { QUEUE_FLUSHED_EVENT } from "@/lib/sync/flush";
 import { stashPairDraft } from "@/lib/pair/draft";
@@ -38,6 +43,8 @@ interface ClipView {
   fileName?: string;
   fileMime?: string;
   fileBytes?: Uint8Array;
+  // Storage-backed file clip: bytes fetched + decrypted on demand at download.
+  fetchBytes?: () => Promise<Uint8Array>;
   lang?: Language;
 }
 
@@ -54,13 +61,20 @@ async function toView(item: SyncItem): Promise<ClipView> {
   try {
     const { content, metadata } = await openClip(item);
     if (item.contentType === "file") {
-      return {
+      const fileBase = {
         ...base,
         decrypted: true,
         fileName: metadata.name ?? "clip",
         fileMime: metadata.mime ?? "application/octet-stream",
-        fileBytes: content,
       };
+      // Storage-backed clip: bytes live in R2, fetched + decrypted on download.
+      if (item.chunkCount !== null) {
+        return {
+          ...fileBase,
+          fetchBytes: async () => downloadClipFile(item, await fetchSyncFileUrls(item.id)),
+        };
+      }
+      return { ...fileBase, fileBytes: content };
     }
     const view: ClipView = {
       ...base,
@@ -275,7 +289,7 @@ export function ClipsFeed() {
             view={view}
             copied={copiedId === view.id}
             onCopy={() => void copyText(view)}
-            onDownload={() => downloadFile(view)}
+            onDownload={() => void downloadFile(view)}
             onDelete={() => void remove(view.id)}
           />
         ))
@@ -593,9 +607,12 @@ function EmptyState({ onCompose }: { onCompose: () => void }) {
   );
 }
 
-function downloadFile(view: ClipView): void {
-  if (view.fileBytes === undefined) return;
-  const blob = new Blob([view.fileBytes], {
+async function downloadFile(view: ClipView): Promise<void> {
+  // Inline clips already hold their bytes; storage-backed clips fetch + decrypt
+  // on demand.
+  const bytes = view.fileBytes ?? (view.fetchBytes ? await view.fetchBytes() : undefined);
+  if (bytes === undefined) return;
+  const blob = new Blob([bytes], {
     type: view.fileMime ?? "application/octet-stream",
   });
   const url = URL.createObjectURL(blob);

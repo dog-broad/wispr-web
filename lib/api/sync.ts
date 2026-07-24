@@ -12,12 +12,16 @@ export type ClipContentType = "text" | "code" | "url" | "file";
 export interface SyncItem {
   id: string;
   contentType: ClipContentType;
+  // Empty for a file-backed clip — its bytes live in R2 (chunkCount objects),
+  // fetched on demand via fetchSyncFileUrls.
   ciphertext: Uint8Array;
   wrappedDek: Uint8Array;
   wrappedDekIv: Uint8Array;
   encryptedMetadata: Uint8Array;
   sizeBytes: number;
   createdAt: string;
+  // Non-null iff the content is stored in R2 rather than inline.
+  chunkCount: number | null;
 }
 
 export interface SyncPage {
@@ -36,6 +40,7 @@ interface SyncItemWire {
   encrypted_metadata: string;
   size_bytes: number;
   created_at: string;
+  chunk_count: number | null;
 }
 
 function decodeItem(wire: SyncItemWire): SyncItem {
@@ -48,6 +53,7 @@ function decodeItem(wire: SyncItemWire): SyncItem {
     encryptedMetadata: base64Decode(wire.encrypted_metadata),
     sizeBytes: wire.size_bytes,
     createdAt: wire.created_at,
+    chunkCount: wire.chunk_count ?? null,
   };
 }
 
@@ -96,4 +102,48 @@ export async function createSyncSnippet(
     throw new SyncError(`${response.status} ${response.statusText}`, response.status);
   }
   return String(((await response.json()) as { id: string }).id);
+}
+
+/** A file clip whose bytes were already chunk-uploaded to R2. The wire body
+ *  carries the storage key + wrapped DEK instead of inline ciphertext. */
+export interface SealedFileClip {
+  storageObjectKey: string;
+  chunkCount: number;
+  wrappedDek: Uint8Array;
+  wrappedDekIv: Uint8Array;
+  encryptedMetadata: Uint8Array;
+}
+
+/** Finalize a file-backed Sync clip (bytes already in R2). Returns the id. */
+export async function createSyncFileSnippet(sealed: SealedFileClip): Promise<string> {
+  const response = await fetch(`${env.apiBaseUrl}/snippets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      share_mode: "sync",
+      content_type: "file",
+      storage_object_key: sealed.storageObjectKey,
+      chunk_count: sealed.chunkCount,
+      wrapped_dek: base64Encode(sealed.wrappedDek),
+      wrapped_dek_iv: base64Encode(sealed.wrappedDekIv),
+      encrypted_metadata: base64Encode(sealed.encryptedMetadata),
+    }),
+  });
+  if (!response.ok) {
+    throw new SyncError(`${response.status} ${response.statusText}`, response.status);
+  }
+  return String(((await response.json()) as { id: string }).id);
+}
+
+/** Presigned GET URL per chunk for an owned storage-backed clip, fetched lazily
+ *  when the user downloads it. */
+export async function fetchSyncFileUrls(id: string): Promise<string[]> {
+  const response = await fetch(`${env.apiBaseUrl}/me/snippets/${id}/file`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new SyncError(`${response.status} ${response.statusText}`, response.status);
+  }
+  return ((await response.json()) as { download_urls: string[] }).download_urls;
 }

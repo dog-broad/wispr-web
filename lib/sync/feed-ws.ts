@@ -99,6 +99,7 @@ function parseItem(raw: Record<string, unknown>): SyncItem | null {
       encryptedMetadata: base64Decode(String(raw.encrypted_metadata)),
       sizeBytes: Number(raw.size_bytes),
       createdAt: String(raw.created_at),
+      chunkCount: raw.chunk_count == null ? null : Number(raw.chunk_count),
     };
   } catch {
     return null;

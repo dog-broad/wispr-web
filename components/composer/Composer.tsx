@@ -149,6 +149,35 @@ export function Composer() {
             router.push(`/unlock?next=${encodeURIComponent("/")}`);
             return;
           }
+          if (largeFile) {
+            // Large file → chunk-encrypt under a fresh DEK straight to R2, then
+            // finalize a storage-backed clip. The chunks must reach R2, so this
+            // needs a connection (unlike inline clips, which queue offline).
+            if (!navigator.onLine) {
+              setStatus({
+                kind: "failed",
+                reason: "Saving a large file to your clips needs a connection.",
+              });
+              return;
+            }
+            const { sealClipFileMeta } = await import("@/lib/sync/clip");
+            const { uploadEncryptedFile } = await import("@/lib/files/upload");
+            const { createSyncFileSnippet } = await import("@/lib/api/sync");
+            const sealed = await sealClipFileMeta(metadata);
+            setStatus({ kind: "posting" });
+            const uploaded = await uploadEncryptedFile(sealed.dek, contentBytes, (fraction) =>
+              setUploadPct(Math.round(fraction * 100)),
+            );
+            const id = await createSyncFileSnippet({
+              storageObjectKey: uploaded.storageObjectKey,
+              chunkCount: uploaded.chunkCount,
+              wrappedDek: sealed.wrappedDek,
+              wrappedDekIv: sealed.wrappedDekIv,
+              encryptedMetadata: sealed.encryptedMetadata,
+            });
+            setStatus({ kind: "saved", id });
+            return;
+          }
           const { sealClip } = await import("@/lib/sync/clip");
           const sealed = await sealClip(contentBytes, metadata);
           // Offline: the clip is already ciphertext, so park it in IndexedDB and
@@ -233,7 +262,7 @@ export function Composer() {
         setUploadPct(null);
       }
     },
-    [attachedFile, maxReads, password, passwordEnabled, router, text, ttlSeconds],
+    [attachedFile, largeFile, maxReads, password, passwordEnabled, router, text, ttlSeconds],
   );
 
   // Restore a draft stashed before an unlock detour (see the sync branch).
@@ -262,9 +291,9 @@ export function Composer() {
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
-      // Cmd+Enter saves to My clips when signed in — but a large file can only
-      // go out as a link/PIN for now, so default it to link instead.
-      void send(signedIn && !largeFile ? "sync" : "link");
+      // Cmd+Enter saves to My clips when signed in (large files upload to R2);
+      // anonymous users get a link.
+      void send(signedIn ? "sync" : "link");
     }
   }
 
@@ -456,10 +485,10 @@ Encrypted in your browser before it leaves."
             )}
 
             <div className="flex flex-col gap-3">
-              {signedIn && !largeFile && (
+              {signedIn && (
                 // Members: saving to My clips is the default action (Cmd+Enter).
-                // Stays enabled offline — the clip queues locally. Hidden for
-                // large files, which only go out as link/PIN for now.
+                // Inline clips queue offline; a large file uploads to R2, so it
+                // needs a connection — the button disables offline in that case.
                 <PixelButton
                   variant="primary"
                   size="lg"
@@ -471,20 +500,27 @@ Encrypted in your browser before it leaves."
                     </kbd>
                   }
                   onClick={() => send("sync")}
-                  disabled={sendDisabled}
-                  title="Encrypt and keep in your private clips"
+                  disabled={sendDisabled || (largeFile && !online)}
+                  title={
+                    largeFile && !online
+                      ? "Reconnect to save a large file to your clips"
+                      : "Encrypt and keep in your private clips"
+                  }
                 >
-                  {actionLabel("sync", online ? "Save to my clips" : "Queue for my clips")}
+                  {actionLabel(
+                    "sync",
+                    largeFile || online ? "Save to my clips" : "Queue for my clips",
+                  )}
                 </PixelButton>
               )}
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <PixelButton
-                  variant={signedIn && !largeFile ? "secondary" : "primary"}
+                  variant={signedIn ? "secondary" : "primary"}
                   size="lg"
                   block
                   leading={<PixelIcon name={attachedFile !== null ? "file" : "link"} size={20} />}
                   trailing={
-                    signedIn && !largeFile ? undefined : (
+                    signedIn ? undefined : (
                       <kbd className="ml-1 inline-flex items-center gap-1 border-2 border-current px-1.5 py-0.5 text-[12px] font-[var(--font-mono)]">
                         <PixelIcon name="command" size={12} />↵
                       </kbd>
