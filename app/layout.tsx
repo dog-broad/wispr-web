@@ -4,6 +4,7 @@ import { Scanlines } from "@/components/pixel/Scanlines";
 import { DitherBg } from "@/components/pixel/DitherBg";
 import { ThemeBootstrap } from "@/components/pixel/ThemeBootstrap";
 import { GlobalShortcuts } from "@/components/GlobalShortcuts";
+import { MaintenanceBanner } from "@/components/MaintenanceBanner";
 import { OfflineSync } from "@/components/OfflineSync";
 import "./globals.css";
 
@@ -91,6 +92,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeBootstrap />
         <GlobalShortcuts />
         <OfflineSync />
+        <MaintenanceBanner />
         <DitherBg />
         {children}
         <Scanlines />

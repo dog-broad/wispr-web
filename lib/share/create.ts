@@ -88,13 +88,21 @@ function passwordFields(password: PasswordGate | undefined): Record<string, stri
     : {};
 }
 
-async function detail(response: Response): Promise<string> {
+async function createError(response: Response): Promise<Error> {
   try {
-    const body = (await response.json()) as { detail?: unknown };
-    return typeof body.detail === "string" ? ` — ${body.detail}` : "";
+    const body = (await response.json()) as { reason?: unknown; detail?: unknown };
+    // A kill switch paused this share mode — show a plain, reassuring message
+    // rather than a raw status code.
+    if (body.reason === "feature_disabled") {
+      return new Error("This is paused right now. Try again later.");
+    }
+    if (typeof body.detail === "string") {
+      return new Error(`${response.status} ${response.statusText} — ${body.detail}`);
+    }
   } catch {
-    return "";
+    // fall through to the bare status
   }
+  return new Error(`${response.status} ${response.statusText}`);
 }
 
 /** Create a one-shot Link (Mode 1). The key lives only in the returned URL
@@ -120,7 +128,7 @@ export async function createLinkShare(
     }),
   });
   if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}${await detail(response)}`);
+    throw await createError(response);
   }
   const { id, expires_at } = (await response.json()) as { id: string; expires_at: string };
   return {
@@ -155,7 +163,7 @@ export async function createPinShare(
     }),
   });
   if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}${await detail(response)}`);
+    throw await createError(response);
   }
   const { id, pin, expires_at } = (await response.json()) as {
     id: string;
