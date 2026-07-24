@@ -6,6 +6,7 @@ import { ThemeBootstrap } from "@/components/pixel/ThemeBootstrap";
 import { GlobalShortcuts } from "@/components/GlobalShortcuts";
 import { MaintenanceBanner } from "@/components/MaintenanceBanner";
 import { OfflineSync } from "@/components/OfflineSync";
+import { PwaSetup } from "@/components/PwaSetup";
 import "./globals.css";
 
 const silkscreen = Silkscreen({
@@ -92,6 +93,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeBootstrap />
         <GlobalShortcuts />
         <OfflineSync />
+        <PwaSetup />
         <MaintenanceBanner />
         <DitherBg />
         {children}
