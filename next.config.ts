@@ -8,13 +8,19 @@ import type { NextConfig } from "next";
 // nonces would require request-scoped middleware that isn't worth the
 // complexity for v1.
 //
+// Cloudflare Turnstile: the /login widget loads its script from, embeds an
+// iframe from, and XHRs to challenges.cloudflare.com. The host is only reached
+// when a site key is configured (the widget is omitted otherwise), so listing
+// it is inert in dev.
+const TURNSTILE_HOST = "https://challenges.cloudflare.com";
+
 // Dev only: Next's Fast Refresh runtime evaluates code via eval(), which the
 // production CSP forbids. Add 'unsafe-eval' under `next dev` so the client
 // hydrates locally; production builds keep the stricter policy.
 const SCRIPT_SRC =
   process.env.NODE_ENV === "development"
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-    : "script-src 'self' 'unsafe-inline'";
+    ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${TURNSTILE_HOST}`
+    : `script-src 'self' 'unsafe-inline' ${TURNSTILE_HOST}`;
 
 // ``'self'`` covers the same-origin /wispr-api/* HTTP path (Next rewrites it to
 // the upstream API). The wss:// entries name the hosts the browser opens raw
@@ -26,7 +32,7 @@ const SCRIPT_SRC =
 // Dev only: also allow the local API host so pair/watch/sync WS + fetch reach
 // ws://localhost:8000 without loosening the production policy.
 const CONNECT_SRC =
-  "connect-src 'self' wss://wispr-api.duckdns.org wss://api.wispr.rushyendra.dev https://api.wispr.rushyendra.dev https://*.r2.cloudflarestorage.com" +
+  `connect-src 'self' wss://wispr-api.duckdns.org wss://api.wispr.rushyendra.dev https://api.wispr.rushyendra.dev https://*.r2.cloudflarestorage.com ${TURNSTILE_HOST}` +
   (process.env.NODE_ENV === "development" ? " ws://localhost:8000 http://localhost:8000" : "");
 
 const SECURITY_HEADERS = [
@@ -53,6 +59,7 @@ const SECURITY_HEADERS = [
       "img-src 'self' data: blob:",
       CONNECT_SRC,
       "worker-src 'self' blob:",
+      `frame-src ${TURNSTILE_HOST}`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
