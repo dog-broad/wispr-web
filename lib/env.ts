@@ -41,10 +41,9 @@ const BUILD_WS_BASE =
   process.env.NEXT_PUBLIC_API_WS_BASE_URL || deriveWsBase(HTTP_BASE);
 
 // Origin-aware WS base: when the page is loaded from the custom-domain
-// frontend (anything under rushyendra.dev), keep WS traffic on the
-// matching api.wispr.rushyendra.dev host so that hostname stays in
-// active use. Anywhere else (platform-provided aliases, restricted-
-// network fallback) the build-time value applies.
+// frontend (anything under rushyendra.dev), route WS traffic to the API
+// host wispr-api.rushyendra.dev. Anywhere else (platform-provided
+// aliases, restricted-network fallback) the build-time value applies.
 //
 // SSR has no window, so this branch is silently a no-op there — the
 // env object below resolves to the build-time value on the server and
@@ -54,13 +53,19 @@ let RUNTIME_WS_BASE = BUILD_WS_BASE;
 if (typeof window !== "undefined") {
   const host = window.location.hostname;
   if (host === "wispr.rushyendra.dev" || host.endsWith(".rushyendra.dev")) {
-    RUNTIME_WS_BASE = "wss://api.wispr.rushyendra.dev";
+    RUNTIME_WS_BASE = "wss://wispr-api.rushyendra.dev";
   }
 }
+
+// Cloudflare Turnstile site key (public). When empty, the challenge widget is
+// omitted and requests carry no token — the API bypasses the check in that
+// case (local dev). Must be a literal env read for Next to inline it.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 export const env = Object.freeze({
   apiBaseUrl: trimTrailingSlash(HTTP_BASE),
   apiWsBaseUrl: trimTrailingSlash(RUNTIME_WS_BASE),
+  turnstileSiteKey: TURNSTILE_SITE_KEY,
 });
 
 export type Env = typeof env;

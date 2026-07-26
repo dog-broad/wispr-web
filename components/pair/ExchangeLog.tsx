@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { PixelButton } from "@/components/pixel/PixelButton";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
@@ -50,6 +43,8 @@ export interface ExchangeLogProps {
   onAttach: (file: File) => void | Promise<void>;
   /** Disables both the textarea and the attach button. */
   disabled?: boolean;
+  /** Pre-fill the compose box once (e.g. a clip reshared to Pair). */
+  initialDraft?: string | undefined;
 }
 
 export function ExchangeLog({
@@ -57,8 +52,9 @@ export function ExchangeLog({
   onSend,
   onAttach,
   disabled = false,
+  initialDraft,
 }: ExchangeLogProps) {
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(initialDraft ?? "");
   const [sending, setSending] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -100,9 +96,7 @@ export function ExchangeLog({
     if (!file) return;
     setAttachError(null);
     if (file.size > MAX_INLINE_FILE_BYTES) {
-      setAttachError(
-        `file too large — max ${formatBytes(MAX_INLINE_FILE_BYTES)} this milestone.`,
-      );
+      setAttachError(`file too large — max ${formatBytes(MAX_INLINE_FILE_BYTES)} this milestone.`);
       return;
     }
     try {
@@ -122,7 +116,7 @@ export function ExchangeLog({
         className="max-h-[400px] min-h-[200px] overflow-y-auto border-[2px] border-[var(--border)] bg-[var(--bg-sunk)] px-3 py-3"
       >
         {messages.length === 0 ? (
-          <p className="py-6 text-center font-[var(--font-body)] text-[14px] opacity-50">
+          <p className="py-6 text-center text-[14px] font-[var(--font-body)] opacity-50">
             Nothing yet — say hello.
           </p>
         ) : (
@@ -139,10 +133,8 @@ export function ExchangeLog({
       </div>
 
       {attachError !== null ? (
-        <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-1 font-[var(--font-body)] text-[12px]">
-          <span className="font-semibold text-[var(--color-pink)]">
-            Couldn&apos;t attach.
-          </span>{" "}
+        <p className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-1 text-[12px] font-[var(--font-body)]">
+          <span className="font-semibold text-[var(--color-pink)]">Couldn&apos;t attach.</span>{" "}
           <span className="opacity-80">{attachError}</span>
         </p>
       ) : null}
@@ -196,9 +188,7 @@ export function ExchangeLog({
 function TextBubble({ message }: { message: TextMessage }) {
   return (
     <Bubble origin={message.origin} at={message.at}>
-      <p className="break-words font-[var(--font-body)] text-[14px]">
-        {renderText(message.body)}
-      </p>
+      <p className="text-[14px] font-[var(--font-body)] break-words">{renderText(message.body)}</p>
     </Bubble>
   );
 }
@@ -213,10 +203,10 @@ function FileBubble({ message }: { message: FileMessage }) {
       <div className="flex items-start gap-2">
         <PixelIcon name="file" size={20} />
         <div className="min-w-0 flex-1">
-          <p className="break-words font-[var(--font-body)] text-[14px] font-semibold">
+          <p className="text-[14px] font-[var(--font-body)] font-semibold break-words">
             {message.name}
           </p>
-          <p className="num font-[var(--font-mono)] text-[12px] opacity-70">
+          <p className="num text-[12px] font-[var(--font-mono)] opacity-70">
             {formatBytes(message.size)}
             {message.status === "transferring" ? (
               <span className="ml-2 opacity-90">{pct}%</span>
@@ -224,14 +214,10 @@ function FileBubble({ message }: { message: FileMessage }) {
           </p>
         </div>
       </div>
-      {message.status === "transferring" ? (
-        <ProgressBar pct={pct} />
-      ) : null}
-      {message.status === "complete" && message.blob ? (
-        <FileComplete message={message} />
-      ) : null}
+      {message.status === "transferring" ? <ProgressBar pct={pct} /> : null}
+      {message.status === "complete" && message.blob ? <FileComplete message={message} /> : null}
       {message.status === "failed" ? (
-        <p className="font-[var(--font-body)] text-[12px] text-[var(--color-pink)]">
+        <p className="text-[12px] font-[var(--font-body)] text-[var(--color-pink)]">
           {message.error ?? "transfer failed"}
         </p>
       ) : null}
@@ -264,7 +250,7 @@ function FileComplete({ message }: { message: FileMessage }) {
       <a
         href={url}
         download={message.name}
-        className="inline-flex items-center gap-1 font-[var(--font-body)] text-[14px] text-[var(--color-pink)] underline"
+        className="inline-flex items-center gap-1 text-[14px] font-[var(--font-body)] text-[var(--color-pink)] underline"
       >
         <PixelIcon name="download" size={14} /> download
       </a>
@@ -311,7 +297,7 @@ function Bubble({
         )}
       >
         {children}
-        <p className="num font-[var(--font-mono)] text-[12px] opacity-50">
+        <p className="num text-[12px] font-[var(--font-mono)] opacity-50">
           {at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>

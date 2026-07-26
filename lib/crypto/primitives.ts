@@ -24,10 +24,7 @@ export function generateKey(): Uint8Array {
 }
 
 async function importAesKey(raw: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", raw, { name: ALGORITHM }, false, [
-    "encrypt",
-    "decrypt",
-  ]);
+  return crypto.subtle.importKey("raw", raw, { name: ALGORITHM }, false, ["encrypt", "decrypt"]);
 }
 
 /**
@@ -38,17 +35,19 @@ async function importAesKey(raw: Uint8Array): Promise<CryptoKey> {
 export async function encrypt(
   key: Uint8Array,
   plaintext: Uint8Array,
+  additionalData?: Uint8Array,
 ): Promise<EncryptResult> {
   if (key.byteLength !== KEY_BYTES) {
     throw new Error(`encrypt: key must be ${KEY_BYTES} bytes (got ${key.byteLength})`);
   }
   const cryptoKey = await importAesKey(key);
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: ALGORITHM, iv },
-    cryptoKey,
-    plaintext,
-  );
+  // additionalData binds context (e.g. a file chunk's index) into the auth
+  // tag without encrypting it — decrypt fails if the same AAD isn't supplied,
+  // so a chunk can't be silently reordered or swapped between uploads.
+  const params: AesGcmParams = { name: ALGORITHM, iv };
+  if (additionalData !== undefined) params.additionalData = additionalData;
+  const ciphertext = await crypto.subtle.encrypt(params, cryptoKey, plaintext);
   return { ciphertext: new Uint8Array(ciphertext), iv };
 }
 
@@ -62,6 +61,7 @@ export async function decrypt(
   key: Uint8Array,
   ciphertext: Uint8Array,
   iv: Uint8Array,
+  additionalData?: Uint8Array,
 ): Promise<Uint8Array> {
   if (key.byteLength !== KEY_BYTES) {
     throw new Error(`decrypt: key must be ${KEY_BYTES} bytes (got ${key.byteLength})`);
@@ -70,10 +70,8 @@ export async function decrypt(
     throw new Error(`decrypt: iv must be ${IV_BYTES} bytes (got ${iv.byteLength})`);
   }
   const cryptoKey = await importAesKey(key);
-  const plaintext = await crypto.subtle.decrypt(
-    { name: ALGORITHM, iv },
-    cryptoKey,
-    ciphertext,
-  );
+  const params: AesGcmParams = { name: ALGORITHM, iv };
+  if (additionalData !== undefined) params.additionalData = additionalData;
+  const plaintext = await crypto.subtle.decrypt(params, cryptoKey, ciphertext);
   return new Uint8Array(plaintext);
 }

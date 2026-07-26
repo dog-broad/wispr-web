@@ -1,13 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  base64Decode,
-  base64Encode,
-  base64urlDecode,
-  unpackEnvelope,
-} from "@/lib/crypto/encoding";
+import { base64Decode, base64Encode, base64urlDecode, unpackEnvelope } from "@/lib/crypto/encoding";
 import { derivePasswordHash } from "@/lib/crypto/password";
+import { downloadChunks } from "@/lib/files/download";
 import { env } from "@/lib/env";
 import type { Language } from "@/lib/highlight/highlight";
 import { detectUrl } from "@/lib/url-preview/detect";
@@ -57,6 +53,10 @@ type FetchBody = {
   content_type: string;
   ciphertext: string;
   encrypted_metadata: string;
+  // File-backed snippets carry the content as R2 chunk objects instead of
+  // inline ciphertext; download_urls is one presigned GET per chunk.
+  chunk_count?: number | null;
+  download_urls?: string[] | null;
 };
 
 // Same shape as the sender's MetadataPayload. The receiver reads the
@@ -91,31 +91,21 @@ export function Receive({ snippetId }: { snippetId: string }) {
   const [key, setKey] = useState<Uint8Array | null>(null);
 
   const decryptBody = useCallback(
-    async (
-      body: FetchBody,
-      decryptionKey: Uint8Array,
-    ): Promise<ReceiveState> => {
+    async (body: FetchBody, decryptionKey: Uint8Array): Promise<ReceiveState> => {
       try {
         const crypto = await import("@/lib/crypto/client");
-        const envelope = base64Decode(body.ciphertext);
-        const { iv, ciphertext } = unpackEnvelope(envelope);
-        const plaintextBytes = await crypto.decrypt(
-          decryptionKey,
-          ciphertext,
-          iv,
-        );
+        const plaintextBytes =
+          body.download_urls && body.download_urls.length > 0
+            ? await downloadChunks(decryptionKey, body.download_urls)
+            : await (async () => {
+                const { iv, ciphertext } = unpackEnvelope(base64Decode(body.ciphertext));
+                return crypto.decrypt(decryptionKey, ciphertext, iv);
+              })();
 
         if (body.content_type === "file") {
-          const meta = await decryptMetadata(
-            crypto,
-            decryptionKey,
-            body.encrypted_metadata,
-          );
+          const meta = await decryptMetadata(crypto, decryptionKey, body.encrypted_metadata);
           const name = typeof meta?.name === "string" ? meta.name : "download";
-          const mime =
-            typeof meta?.mime === "string"
-              ? meta.mime
-              : "application/octet-stream";
+          const mime = typeof meta?.mime === "string" ? meta.mime : "application/octet-stream";
           const blob = new Blob([plaintextBytes], { type: mime });
           return { kind: "ok-file", blob, name, mime };
         }
@@ -129,11 +119,7 @@ export function Receive({ snippetId }: { snippetId: string }) {
 
         let lang: Language | null = null;
         if (body.content_type === "code") {
-          const meta = await decryptMetadata(
-            crypto,
-            decryptionKey,
-            body.encrypted_metadata,
-          );
+          const meta = await decryptMetadata(crypto, decryptionKey, body.encrypted_metadata);
           if (
             typeof meta?.lang === "string" &&
             (KNOWN_LANGS as readonly string[]).includes(meta.lang)
@@ -163,14 +149,11 @@ export function Receive({ snippetId }: { snippetId: string }) {
       }
       let response: Response;
       try {
-        response = await fetch(
-          `${env.apiBaseUrl}/snippets/${snippetId}/verify-password`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ password_hash: base64Encode(hash) }),
-          },
-        );
+        response = await fetch(`${env.apiBaseUrl}/snippets/${snippetId}/verify-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password_hash: base64Encode(hash) }),
+        });
       } catch (err) {
         const reason = err instanceof Error ? err.message : "unknown error";
         setState({ kind: "network-error", reason });
@@ -192,11 +175,7 @@ export function Receive({ snippetId }: { snippetId: string }) {
       if (response.status === 410) {
         const body = (await safeJson<GoneBody>(response)) ?? null;
         const reason = body?.reason;
-        if (
-          reason === "expired" ||
-          reason === "burned" ||
-          reason === "taken_down"
-        ) {
+        if (reason === "expired" || reason === "burned" || reason === "taken_down") {
           setState({ kind: "gone", reason });
         } else {
           setState({ kind: "malformed" });

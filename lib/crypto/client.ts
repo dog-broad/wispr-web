@@ -7,11 +7,21 @@
 // tab boundary would be a leak.
 
 import type {
+  ClearKeysResult,
+  CommitNextKeyResult,
   DecryptResult,
+  DeriveAuthTokenResult,
+  DeriveKeysResult,
+  DeriveNextKeyResult,
+  DiscardNextKeyResult,
   EncryptResult,
   GenerateKeyResult,
+  HasKeysResult,
+  RewrapResult,
+  UnwrapResult,
   WorkerRequest,
   WorkerResponse,
+  WrapResult,
 } from "./types";
 
 type PendingResolve = (value: WorkerResponse) => void;
@@ -53,9 +63,7 @@ function unwrap<T>(response: WorkerResponse, expectedOp: WorkerRequest["op"]): T
     throw new Error(`crypto.${expectedOp} failed: ${response.error}`);
   }
   if (response.op !== expectedOp) {
-    throw new Error(
-      `crypto.${expectedOp} got a response for ${response.op} (id ${response.id})`,
-    );
+    throw new Error(`crypto.${expectedOp} got a response for ${response.op} (id ${response.id})`);
   }
   return response.result as T;
 }
@@ -68,8 +76,11 @@ export async function generateKey(): Promise<Uint8Array> {
 export async function encrypt(
   key: Uint8Array,
   plaintext: Uint8Array,
+  aad?: Uint8Array,
 ): Promise<EncryptResult> {
-  const response = await send({ op: "encrypt", key, plaintext });
+  const response = await send(
+    aad === undefined ? { op: "encrypt", key, plaintext } : { op: "encrypt", key, plaintext, aad },
+  );
   return unwrap<EncryptResult>(response, "encrypt");
 }
 
@@ -77,7 +88,88 @@ export async function decrypt(
   key: Uint8Array,
   ciphertext: Uint8Array,
   iv: Uint8Array,
+  aad?: Uint8Array,
 ): Promise<Uint8Array> {
-  const response = await send({ op: "decrypt", key, ciphertext, iv });
+  const response = await send(
+    aad === undefined
+      ? { op: "decrypt", key, ciphertext, iv }
+      : { op: "decrypt", key, ciphertext, iv, aad },
+  );
   return unwrap<DecryptResult>(response, "decrypt").plaintext;
+}
+
+/**
+ * Derive the passphrase chains: the master KEK is held inside the worker; the
+ * returned auth token is sent to the server (setup) or discarded (prompt).
+ */
+export async function deriveKeys(
+  passphrase: string,
+  authSalt: Uint8Array,
+  masterSalt: Uint8Array,
+): Promise<Uint8Array> {
+  const response = await send({ op: "deriveKeys", passphrase, authSalt, masterSalt });
+  return unwrap<DeriveKeysResult>(response, "deriveKeys").authToken;
+}
+
+/** Wrap a per-snippet DEK with the worker-held master KEK. */
+export async function wrapDek(dek: Uint8Array): Promise<WrapResult> {
+  const response = await send({ op: "wrap", dek });
+  return unwrap<WrapResult>(response, "wrap");
+}
+
+/** Unwrap a DEK with the worker-held master KEK. */
+export async function unwrapDek(wrapped: Uint8Array, iv: Uint8Array): Promise<Uint8Array> {
+  const response = await send({ op: "unwrap", wrapped, iv });
+  return unwrap<UnwrapResult>(response, "unwrap").dek;
+}
+
+/** Derive only the auth token from a passphrase — no KEK side effects. For
+ *  re-auth (proving the current passphrase) without disturbing the held KEK. */
+export async function deriveAuthToken(
+  passphrase: string,
+  authSalt: Uint8Array,
+): Promise<Uint8Array> {
+  const response = await send({ op: "deriveAuthToken", passphrase, authSalt });
+  return unwrap<DeriveAuthTokenResult>(response, "deriveAuthToken").authToken;
+}
+
+/** Derive a pending "next" KEK from a new passphrase (for a passphrase change).
+ *  The current KEK stays active until commitNextKey. Returns the new auth token. */
+export async function deriveNextKey(
+  passphrase: string,
+  authSalt: Uint8Array,
+  masterSalt: Uint8Array,
+): Promise<Uint8Array> {
+  const response = await send({ op: "deriveNextKey", passphrase, authSalt, masterSalt });
+  return unwrap<DeriveNextKeyResult>(response, "deriveNextKey").authToken;
+}
+
+/** Re-wrap one DEK from the current KEK to the pending next KEK. */
+export async function rewrapToNext(wrapped: Uint8Array, iv: Uint8Array): Promise<RewrapResult> {
+  const response = await send({ op: "rewrapToNext", wrapped, iv });
+  return unwrap<RewrapResult>(response, "rewrapToNext");
+}
+
+/** Promote the next KEK to current — call once the server accepts the change. */
+export async function commitNextKey(): Promise<void> {
+  const response = await send({ op: "commitNextKey" });
+  unwrap<CommitNextKeyResult>(response, "commitNextKey");
+}
+
+/** Drop the pending next KEK — call if the change fails. */
+export async function discardNextKey(): Promise<void> {
+  const response = await send({ op: "discardNextKey" });
+  unwrap<DiscardNextKeyResult>(response, "discardNextKey");
+}
+
+/** Drop the master KEK from worker memory (lock / logout). */
+export async function clearKeys(): Promise<void> {
+  const response = await send({ op: "clearKeys" });
+  unwrap<ClearKeysResult>(response, "clearKeys");
+}
+
+/** Whether this tab's worker holds a derived master KEK (unlocked). */
+export async function hasKeys(): Promise<boolean> {
+  const response = await send({ op: "hasKeys" });
+  return unwrap<HasKeysResult>(response, "hasKeys").present;
 }

@@ -8,12 +8,18 @@ import { PixelQr } from "@/components/pixel/PixelQr";
 import { WispMascot } from "@/components/pixel/WispMascot";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { openWatch, type GoneReason, type WatchEvent } from "@/lib/api/watch";
+import { deleteSnippet, rotatePin } from "@/lib/api/pin";
 
 export interface SentDetails {
   id: string;
+  // For a link this is the /s/{id}#k= URL; for a PIN it's the /r?pin= URL.
   url: string;
   copied: boolean;
   expiresAt: Date;
+  kind: "link" | "pin";
+  // PIN and reads ceiling are only set for kind === "pin".
+  pin?: string;
+  maxReads: number | null;
 }
 
 type WatchState =
@@ -40,22 +46,55 @@ export interface SentStateProps {
 
 export function SentState({ details, onSendAnother }: SentStateProps) {
   const [copied, setCopied] = useState(details.copied);
+  // PIN + URL are mutable for PIN shares (rotate issues a new PIN).
+  const [pin, setPin] = useState(details.pin);
+  const [url, setUrl] = useState(details.url);
+  const [manage, setManage] = useState<"idle" | "rotating" | "deleting" | "deleted">("idle");
+  const [manageError, setManageError] = useState<string | null>(null);
   const [watch, setWatch] = useState<WatchState>({ kind: "idle" });
   const watchRef = useRef<{ close: () => void } | null>(null);
   const remaining = useCountdown(details.expiresAt);
 
   async function copyAgain() {
     try {
-      await navigator.clipboard.writeText(details.url);
+      await navigator.clipboard.writeText(url);
       setCopied(true);
     } catch {
       setCopied(false);
     }
   }
 
+  async function onRotate() {
+    setManageError(null);
+    setManage("rotating");
+    try {
+      const next = await rotatePin(details.id);
+      setPin(next);
+      setUrl(`${window.location.origin}/r?pin=${next}`);
+      setCopied(false);
+      setManage("idle");
+    } catch {
+      setManage("idle");
+      setManageError("Couldn't rotate the PIN. Try again.");
+    }
+  }
+
+  async function onDelete() {
+    setManageError(null);
+    setManage("deleting");
+    try {
+      await deleteSnippet(details.id);
+      watchRef.current?.close();
+      setManage("deleted");
+    } catch {
+      setManage("idle");
+      setManageError("Couldn't delete. Try again.");
+    }
+  }
+
   const startWatch = useCallback(() => {
     if (watch.kind === "live") return;
-    setWatch({ kind: "live", readCount: 0, maxReads: 1, lastReadAt: null });
+    setWatch({ kind: "live", readCount: 0, maxReads: details.maxReads, lastReadAt: null });
     const client = openWatch(details.id, {
       onEvent: (event: WatchEvent) => {
         if (event.op === "snapshot") {
@@ -110,7 +149,7 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
       },
     });
     watchRef.current = client;
-  }, [details.id, watch.kind]);
+  }, [details.id, details.maxReads, watch.kind]);
 
   useEffect(() => {
     return () => {
@@ -118,6 +157,27 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
       watchRef.current = null;
     };
   }, []);
+
+  if (manage === "deleted") {
+    return (
+      <section className="relative">
+        <PixelCard variant="lifted" accent="pink">
+          <div className="flex flex-col items-start gap-4">
+            <PixelBadge tone="neutral">
+              <PixelIcon name="close" size={12} />
+              deleted
+            </PixelBadge>
+            <p className="font-[var(--font-body)] text-[16px]">
+              This share is gone — the PIN no longer resolves.
+            </p>
+            <PixelButton variant="primary" size="md" onClick={onSendAnother}>
+              Send another
+            </PixelButton>
+          </div>
+        </PixelCard>
+      </section>
+    );
+  }
 
   return (
     <section className="relative">
@@ -130,7 +190,7 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
           <div className="flex items-center gap-3">
             <PixelBadge tone="success">
               <PixelIcon name="forward" size={12} />
-              sent via link
+              {details.kind === "pin" ? "sent via PIN" : "sent via link"}
             </PixelBadge>
             <span className="ml-auto md:hidden">
               <WispMascot state="sending" size={2} />
@@ -147,15 +207,29 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
             )}
           </div>
 
+          {details.kind === "pin" && pin && (
+            <div className="flex flex-col items-center gap-1 border-[3px] border-[var(--color-purple)] bg-[var(--bg-sunk)] px-4 py-4">
+              <span className="font-[var(--font-display)] text-[12px] tracking-widest uppercase opacity-70">
+                share this PIN
+              </span>
+              <span className="num font-[var(--font-mono)] text-[64px] leading-none tracking-[0.3em]">
+                {pin}
+              </span>
+              <span className="font-[var(--font-body)] text-[14px] opacity-70">
+                They enter it at <span className="num">/r</span> — or scan below.
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-col items-stretch gap-4 md:flex-row md:items-start">
             <div className="flex justify-center md:block">
-              <PixelQr value={details.url} size={168} label="Receive URL QR code" />
+              <PixelQr value={url} size={168} label="Receive URL QR code" />
             </div>
 
             <div className="flex min-w-0 flex-1 flex-col gap-3">
               <div className="overflow-hidden border-[2px] border-[var(--border)] bg-[var(--bg-sunk)] p-3">
                 <p className="break-all font-[var(--font-mono)] text-[16px] leading-tight">
-                  {details.url}
+                  {url}
                 </p>
               </div>
 
@@ -178,14 +252,51 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
                 </p>
                 <p className="flex items-center gap-2">
                   <PixelIcon name="eye" size={14} />
-                  <span className="num font-semibold">1</span>
-                  <span className="opacity-70">read remaining</span>
+                  <span className="num font-semibold">
+                    {details.maxReads === null ? "∞" : details.maxReads}
+                  </span>
+                  <span className="opacity-70">
+                    {details.maxReads === 1 ? "read remaining" : "reads allowed"}
+                  </span>
                 </p>
               </div>
             </div>
           </div>
 
           {watch.kind !== "idle" && <WatchPanel state={watch} />}
+
+          {details.kind === "pin" && (
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                <PixelButton
+                  variant="ghost"
+                  size="sm"
+                  leading={<PixelIcon name="zap" size={14} />}
+                  onClick={onRotate}
+                  disabled={manage !== "idle"}
+                >
+                  {manage === "rotating" ? "Rotating…" : "Rotate PIN"}
+                </PixelButton>
+                <PixelButton
+                  variant="ghost"
+                  size="sm"
+                  leading={<PixelIcon name="close" size={14} />}
+                  onClick={onDelete}
+                  disabled={manage !== "idle"}
+                >
+                  {manage === "deleting" ? "Deleting…" : "Delete now"}
+                </PixelButton>
+              </div>
+              {manageError && (
+                <p
+                  role="alert"
+                  className="border-[2px] border-[var(--color-pink)] bg-[var(--bg-sunk)] px-3 py-2 font-[var(--font-body)] text-[14px]"
+                >
+                  {manageError}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <PixelButton variant="primary" size="md" block onClick={onSendAnother}>

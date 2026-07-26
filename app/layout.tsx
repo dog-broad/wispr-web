@@ -3,6 +3,10 @@ import { Silkscreen, Pixelify_Sans, VT323 } from "next/font/google";
 import { Scanlines } from "@/components/pixel/Scanlines";
 import { DitherBg } from "@/components/pixel/DitherBg";
 import { ThemeBootstrap } from "@/components/pixel/ThemeBootstrap";
+import { GlobalShortcuts } from "@/components/GlobalShortcuts";
+import { MaintenanceBanner } from "@/components/MaintenanceBanner";
+import { OfflineSync } from "@/components/OfflineSync";
+import { PwaSetup } from "@/components/PwaSetup";
 import "./globals.css";
 
 const silkscreen = Silkscreen({
@@ -60,8 +64,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Wispr — encrypted clipboard",
-    description:
-      "Send anything, privately. The key lives in the URL fragment; we never see it.",
+    description: "Send anything, privately. The key lives in the URL fragment; we never see it.",
   },
   robots: {
     index: true,
@@ -88,6 +91,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={fontVars} suppressHydrationWarning>
       <body className="relative min-h-screen">
         <ThemeBootstrap />
+        <GlobalShortcuts />
+        <OfflineSync />
+        <PwaSetup />
+        <MaintenanceBanner />
         <DitherBg />
         {children}
         <Scanlines />

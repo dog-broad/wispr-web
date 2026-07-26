@@ -10,6 +10,7 @@ import { PixelIcon } from "@/components/pixel/PixelIcon";
 import { WispMascot } from "@/components/pixel/WispMascot";
 import { createPair } from "@/lib/api/pair";
 import type { CreatePairResponse } from "@/lib/api/pair";
+import { takePairDraft } from "@/lib/pair/draft";
 import { env } from "@/lib/env";
 import { PairSession, type PairFailure, type PairPhase } from "@/lib/pair/session";
 
@@ -33,6 +34,8 @@ const TICK_INTERVAL_MS = 1000;
 export function PairSender() {
   const [issue, setIssue] = useState<IssueState>({ kind: "loading" });
   const [session, setSession] = useState<SessionState>({ kind: "idle" });
+  // A clip reshared to Pair lands here as a one-shot compose pre-fill.
+  const [initialDraft] = useState<string | undefined>(() => takePairDraft() ?? undefined);
   const tickRef = useRef<number | null>(null);
   const sessionRef = useRef<PairSession | null>(null);
   // Destructure the hook return so the effect below can depend on the
@@ -40,14 +43,7 @@ export function PairSender() {
   // which is a fresh literal every render and would otherwise re-fire
   // the effect on every countdown tick, churning a new
   // RTCPeerConnection each second until Chrome's per-tab cap hits.
-  const {
-    transcript,
-    attach,
-    detach,
-    resetTranscript,
-    sendText,
-    sendFile,
-  } = usePairExchange();
+  const { transcript, attach, detach, resetTranscript, sendText, sendFile } = usePairExchange();
 
   const issuePair = useCallback(async (controller: AbortController) => {
     setIssue({ kind: "loading" });
@@ -151,11 +147,8 @@ export function PairSender() {
 
   return (
     <section className="relative">
-      <div className="pointer-events-none absolute -top-8 right-4 z-10 hidden md:block md:-top-12 md:right-8">
-        <WispMascot
-          state={session.kind === "connected" ? "success" : "pairing"}
-          size={3}
-        />
+      <div className="pointer-events-none absolute -top-8 right-4 z-10 hidden md:-top-12 md:right-8 md:block">
+        <WispMascot state={session.kind === "connected" ? "success" : "pairing"} size={3} />
       </div>
 
       <PixelCard variant="lifted" accent="marigold">
@@ -169,6 +162,7 @@ export function PairSender() {
                 onSend={sendText}
                 onAttach={sendFile}
                 disabled={session.kind !== "connected"}
+                initialDraft={initialDraft}
               />
               <div className="flex justify-center">
                 <PixelButton
@@ -239,7 +233,7 @@ function PinDigit({ value }: { value: string }) {
   return (
     <span
       aria-hidden
-      className="inline-flex h-20 w-14 items-center justify-center border-[3px] border-[var(--border)] bg-[var(--bg-sunk)] font-[var(--font-mono)] text-[56px] leading-none md:h-28 md:w-20 md:text-[80px]"
+      className="inline-flex h-20 w-14 items-center justify-center border-[3px] border-[var(--border)] bg-[var(--bg-sunk)] text-[56px] leading-none font-[var(--font-mono)] md:h-28 md:w-20 md:text-[80px]"
     >
       {value}
     </span>
@@ -252,7 +246,7 @@ function PlaceholderPin({ label }: { label: string }) {
       {Array.from({ length: 4 }).map((_, i) => (
         <span
           key={i}
-          className="inline-flex h-20 w-14 items-center justify-center border-[3px] border-[var(--border)] bg-[var(--bg-sunk)] font-[var(--font-mono)] text-[40px] md:h-28 md:w-20 md:text-[56px]"
+          className="inline-flex h-20 w-14 items-center justify-center border-[3px] border-[var(--border)] bg-[var(--bg-sunk)] text-[40px] font-[var(--font-mono)] md:h-28 md:w-20 md:text-[56px]"
         >
           {label[i] ?? "·"}
         </span>
@@ -263,35 +257,27 @@ function PlaceholderPin({ label }: { label: string }) {
 
 function Countdown({ issue }: { issue: IssueState }) {
   if (issue.kind === "loading") {
-    return (
-      <p className="font-[var(--font-body)] text-[14px] opacity-70">
-        Issuing PIN…
-      </p>
-    );
+    return <p className="text-[14px] font-[var(--font-body)] opacity-70">Issuing PIN…</p>;
   }
   if (issue.kind === "waiting") {
     return (
-      <p className="font-[var(--font-body)] text-[14px] opacity-80">
+      <p className="text-[14px] font-[var(--font-body)] opacity-80">
         expires in{" "}
-        <span className="num font-[var(--font-mono)] text-[18px]">
-          {issue.remainingSeconds}s
-        </span>
+        <span className="num text-[18px] font-[var(--font-mono)]">{issue.remainingSeconds}s</span>
       </p>
     );
   }
   if (issue.kind === "expired") {
     return (
-      <p className="font-[var(--font-body)] text-[14px] opacity-80">
-        <span className="text-[var(--color-pink)]">PIN expired.</span> Get a new
-        one to keep pairing.
+      <p className="text-[14px] font-[var(--font-body)] opacity-80">
+        <span className="text-[var(--color-pink)]">PIN expired.</span> Get a new one to keep
+        pairing.
       </p>
     );
   }
   return (
-    <p className="font-[var(--font-body)] text-[14px]">
-      <span className="font-semibold text-[var(--color-pink)]">
-        Couldn&apos;t issue a PIN.
-      </span>{" "}
+    <p className="text-[14px] font-[var(--font-body)]">
+      <span className="font-semibold text-[var(--color-pink)]">Couldn&apos;t issue a PIN.</span>{" "}
       <span className="num opacity-90">{issue.reason}</span>
     </p>
   );
@@ -321,10 +307,11 @@ function Helper({ issue, session }: { issue: IssueState; session: SessionState }
   } else if (issue.kind === "expired") {
     body = "PINs are short-lived on purpose — they only live until someone joins.";
   } else {
-    body = "On the other device, open Wispr and enter this PIN. Pair stays peer-to-peer; nothing is saved.";
+    body =
+      "On the other device, open Wispr and enter this PIN. Pair stays peer-to-peer; nothing is saved.";
   }
   return (
-    <p className="flex items-center gap-2 text-center font-[var(--font-body)] text-[14px] opacity-70">
+    <p className="flex items-center gap-2 text-center text-[14px] font-[var(--font-body)] opacity-70">
       <span className="md:hidden">
         <WispMascot
           state={session.kind === "connected" ? "success" : "pairing"}

@@ -78,7 +78,17 @@ export function DecryptingCard() {
 
 // ----- OK (decrypted content) ----------------------------------------
 
-export function OkCard({ text, lang }: { text: string; lang: Language | null }) {
+export function OkCard({
+  text,
+  lang,
+  extraAction,
+}: {
+  text: string;
+  lang: Language | null;
+  // Optional trailing action rendered in the button row — PIN receives pass a
+  // report control here; Link receives leave it undefined.
+  extraAction?: ReactNode;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -119,6 +129,7 @@ export function OkCard({ text, lang }: { text: string; lang: Language | null }) 
             >
               {copied ? "Copied" : "Copy"}
             </PixelButton>
+            {extraAction}
           </div>
           <p className="font-[var(--font-body)] text-[14px] opacity-70">
             Self-destructs when you leave this page.
@@ -163,10 +174,12 @@ export function FileOkCard({
   blob,
   name,
   mime,
+  extraAction,
 }: {
   blob: Blob;
   name: string;
   mime: string;
+  extraAction?: ReactNode;
 }) {
   // The object URL must outlive the user's click on the download link
   // but get revoked on unmount to release the browser-side allocation.
@@ -221,6 +234,7 @@ export function FileOkCard({
                 Download
               </a>
             )}
+            {extraAction}
           </div>
           <p className="font-[var(--font-body)] text-[14px] opacity-70">
             Self-destructs when you leave this page.
@@ -259,7 +273,7 @@ type UrlPreviewState =
   | { kind: "ready"; preview: OgPreview }
   | { kind: "unavailable" };
 
-export function UrlOkCard({ url }: { url: URL }) {
+export function UrlOkCard({ url, extraAction }: { url: URL; extraAction?: ReactNode }) {
   const [copied, setCopied] = useState(false);
   const [preview, setPreview] = useState<UrlPreviewState>({ kind: "idle" });
 
@@ -322,6 +336,7 @@ export function UrlOkCard({ url }: { url: URL }) {
             >
               {copied ? "Copied" : "Copy URL"}
             </PixelButton>
+            {extraAction}
           </div>
           <p className="font-[var(--font-body)] text-[14px] opacity-70">
             Self-destructs when you leave this page.
@@ -504,7 +519,9 @@ export function WrongKeyCard() {
 
 // ----- Gone (expired / burned / taken_down) --------------------------
 
-const GONE_COPY: Record<"expired" | "burned" | "taken_down", { heading: string; sub: string; badge: string }> = {
+export type GoneReason = "expired" | "burned" | "taken_down" | "disabled";
+
+const GONE_COPY: Record<GoneReason, { heading: string; sub: string; badge: string }> = {
   expired: {
     heading: "This share has expired.",
     sub: "The sender set a lifetime on this link and it has run out. Ask them to send a fresh one.",
@@ -520,9 +537,14 @@ const GONE_COPY: Record<"expired" | "burned" | "taken_down", { heading: string; 
     sub: "The operator pulled this snippet down. Ask the sender if you need it again.",
     badge: "taken down",
   },
+  disabled: {
+    heading: "This PIN was disabled.",
+    sub: "Too many wrong tries locked it. Ask the sender to issue a new PIN.",
+    badge: "disabled",
+  },
 };
 
-export function GoneCard({ reason }: { reason: "expired" | "burned" | "taken_down" }) {
+export function GoneCard({ reason }: { reason: GoneReason }) {
   const copy = GONE_COPY[reason];
   return (
     <Shell
