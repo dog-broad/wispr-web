@@ -23,16 +23,15 @@ const SCRIPT_SRC =
     : `script-src 'self' 'unsafe-inline' ${TURNSTILE_HOST}`;
 
 // ``'self'`` covers the same-origin /wispr-api/* HTTP path (Next rewrites it to
-// the upstream API). The wss:// entries name the hosts the browser opens raw
-// WebSockets to — Next rewrites can't proxy WS upgrades, so each WS-base
-// hostname must be listed explicitly. wispr-api.duckdns.org is the primary
-// path; the api.wispr.rushyendra.dev entry stays as a transitional fallback.
-// The R2 wildcard lets the browser PUT/GET encrypted file chunks straight to
-// Cloudflare R2 via presigned URLs (the bytes never transit the API).
+// the upstream API). The wss:// entry names the host the browser opens raw
+// WebSockets to — Next rewrites can't proxy WS upgrades, so the WS-base
+// hostname must be listed explicitly. The R2 wildcard lets the browser PUT/GET
+// encrypted file chunks straight to Cloudflare R2 via presigned URLs (the bytes
+// never transit the API).
 // Dev only: also allow the local API host so pair/watch/sync WS + fetch reach
 // ws://localhost:8000 without loosening the production policy.
 const CONNECT_SRC =
-  `connect-src 'self' wss://wispr-api.duckdns.org wss://api.wispr.rushyendra.dev https://api.wispr.rushyendra.dev https://*.r2.cloudflarestorage.com ${TURNSTILE_HOST}` +
+  `connect-src 'self' wss://wispr-api.rushyendra.dev https://wispr-api.rushyendra.dev https://*.r2.cloudflarestorage.com ${TURNSTILE_HOST}` +
   (process.env.NODE_ENV === "development" ? " ws://localhost:8000 http://localhost:8000" : "");
 
 const SECURITY_HEADERS = [
@@ -76,7 +75,7 @@ const SECURITY_HEADERS = [
 // the cross-origin fetch on the edge — the browser never sees a
 // cross-origin response.
 const API_REWRITE_TARGET =
-  process.env.WISPR_API_REWRITE_TARGET || "https://api.wispr.rushyendra.dev";
+  process.env.WISPR_API_REWRITE_TARGET || "https://wispr-api.rushyendra.dev";
 
 const config: NextConfig = {
   reactStrictMode: true,
