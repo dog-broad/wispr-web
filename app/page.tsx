@@ -21,7 +21,7 @@ export default function HomePage() {
           <div className="anim-drift-in relative z-10 flex flex-col items-start gap-4 md:gap-6">
             <PixelBadge tone="info">
               <PixelIcon name="zap" size={12} />
-              <span className="num">v1</span> in flight · pair-and-content
+              <span className="num">v1</span> · zero-knowledge
             </PixelBadge>
 
             <h1 className="font-[var(--font-display)] text-[40px] leading-[1] tracking-tight md:text-[56px] lg:text-[64px]">
