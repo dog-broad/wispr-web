@@ -2,6 +2,16 @@
 
 Next.js 15 + TypeScript + Tailwind frontend for [Wispr](https://wispr.rushyendra.dev) — a web-only zero-knowledge clipboard.
 
+<p align="center">
+  <img src="docs/home-light.png" alt="Wispr home — compose an encrypted, self-destructing share" width="860">
+</p>
+
+<p align="center">
+  <img src="docs/home-dark.png" alt="Dark mode" width="270">&nbsp;
+  <img src="docs/sent.png" alt="Share created — copy the link or scan the QR; burns after one read" width="270">&nbsp;
+  <img src="docs/receive.png" alt="Recipient decrypts in the browser, then it self-destructs" width="270">
+</p>
+
 **Backend counterpart:** [`dog-broad/wispr-api`](https://github.com/dog-broad/wispr-api) (FastAPI + Postgres + Redis).
 
 This repo is structured for eventual open-sourcing — the client crypto is meant to be readable and auditable.
