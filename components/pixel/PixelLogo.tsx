@@ -12,34 +12,45 @@ const sizeStyles: Record<NonNullable<PixelLogoProps["size"]>, string> = {
   xl: "text-[64px]",
 };
 
-// Silkscreen wordmark with a pixel marigold spark over the "i".
-// The font does the heavy lifting; we add a single decorative dot for warmth.
+// Silkscreen wordmark whose "i" is dotted with the marigold brand spark (the
+// same mark as the favicon). The spark is anchored to the "i" glyph itself —
+// not the wordmark's overall width — so it stays put whether the logo sizes to
+// its text (header) or gets stretched by a flex parent (footer). `w-fit` also
+// stops that stretch so the click/hover area matches the word.
 export function PixelLogo({ className, size = "md" }: PixelLogoProps) {
   return (
     <span
       aria-label="Wispr"
       className={cn(
-        "relative inline-flex select-none items-center font-[var(--font-display)] leading-none tracking-tight",
+        "relative inline-flex w-fit select-none items-center font-[var(--font-display)] leading-none tracking-tight",
         sizeStyles[size],
         className,
       )}
     >
-      <span aria-hidden>Wispr</span>
-      <SparkDot />
+      <span aria-hidden>
+        W
+        <span className="relative inline-block">
+          i
+          <SparkDot />
+        </span>
+        spr
+      </span>
       <span className="sr-only">Wispr</span>
     </span>
   );
 }
 
 function SparkDot() {
-  // Floats above the "i" dot. Position is tuned for Silkscreen at ratio ~ 0.42em right of left edge.
+  // Sits centered over the "i", where its tittle would be. Positioned against
+  // the "i" wrapper (which is glyph-width), so `left-1/2 -translate-x-1/2`
+  // lands dead-center on the letter at any size or layout context.
   return (
     <svg
       aria-hidden
       viewBox="0 0 5 5"
       shapeRendering="crispEdges"
-      className="pixel absolute h-[0.18em] w-[0.18em]"
-      style={{ left: "calc(50% - 0.06em)", top: "-0.18em" }}
+      className="pixel absolute left-1/2 h-[0.28em] w-[0.28em] -translate-x-1/2"
+      style={{ top: "-0.22em" }}
     >
       <g fill="var(--color-marigold)">
         <rect x="2" y="0" width="1" height="5" />
