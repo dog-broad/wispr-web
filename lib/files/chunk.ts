@@ -2,7 +2,7 @@
 //
 // A file is encrypted 1 MiB at a time. Each chunk gets its own IV (from the
 // worker) and binds its index as AES-GCM additional-authenticated-data, so a
-// chunk can't be silently reordered, dropped, or swapped between uploads —
+// chunk can't be silently reordered, dropped, or swapped between uploads:
 // decrypt fails unless the same index is supplied. On the wire each chunk
 // object is `iv || ciphertext+tag`, matching the inline envelope format.
 

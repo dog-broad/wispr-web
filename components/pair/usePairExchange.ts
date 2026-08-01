@@ -1,7 +1,7 @@
 // Hook shared by /pair (sender) and /r (receiver) for the channel-
 // open phase: owns the EncryptedChannel, the transcript state, and
-// the send helpers. The two pages keep their own session lifecycles
-// — they call ``attach`` from inside ``onConnected`` and ``detach``
+// the send helpers. The two pages keep their own session lifecycles:
+// they call ``attach`` from inside ``onConnected`` and ``detach``
 // in cleanup.
 
 "use client";
@@ -19,7 +19,7 @@ import type { ExchangeMessage, FileMessage } from "./ExchangeLog";
 
 // Monotonic counter for React keys. The wire format doesn't ship a
 // stable id (sender and receiver number their own messages
-// independently) — these ids are local-only and lossless on reload.
+// independently). These ids are local-only and lossless on reload.
 let messageCounter = 0;
 function nextMessageId(): string {
   messageCounter += 1;
@@ -27,7 +27,7 @@ function nextMessageId(): string {
 }
 
 // Per-file reassembly state on the receiver. Held in a ref because
-// chunk writes don't drive React renders directly — only the
+// chunk writes don't drive React renders directly: only the
 // progress / completion updates to the transcript do.
 interface InboundFile {
   meta: FileMetaFrame;
@@ -103,7 +103,7 @@ export function usePairExchange(): UsePairExchange {
         const bytes = decodeChunkData(frame);
         const offset = frame.index * FILE_CHUNK_BYTES;
         // Guard against an oversized chunk that would overrun the
-        // pre-allocated buffer — drop the frame instead.
+        // pre-allocated buffer: drop the frame instead.
         if (offset + bytes.byteLength > xfer.buffer.byteLength) return;
         xfer.buffer.set(bytes, offset);
         xfer.receivedBytes += bytes.byteLength;

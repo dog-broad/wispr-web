@@ -13,8 +13,8 @@ const sizeStyles: Record<NonNullable<PixelLogoProps["size"]>, string> = {
 };
 
 // Silkscreen wordmark whose "i" is dotted with the marigold brand spark (the
-// same mark as the favicon). The spark is anchored to the "i" glyph itself —
-// not the wordmark's overall width — so it stays put whether the logo sizes to
+// same mark as the favicon). The spark is anchored to the "i" glyph itself
+// (not the wordmark's overall width) so it stays put whether the logo sizes to
 // its text (header) or gets stretched by a flex parent (footer). `w-fit` also
 // stops that stretch so the click/hover area matches the word.
 export function PixelLogo({ className, size = "md" }: PixelLogoProps) {
@@ -41,7 +41,7 @@ export function PixelLogo({ className, size = "md" }: PixelLogoProps) {
 }
 
 function SparkDot() {
-  // Sits *on* the "i" tittle — the marigold spark replaces the letter's dot
+  // Sits *on* the "i" tittle: the marigold spark replaces the letter's dot
   // rather than floating above it. Anchored to the "i" wrapper (glyph-width),
   // so `left-1/2 -translate-x-1/2` centres it and `top` seats it over the dot
   // at any size. Sized to cover the font's own tittle so it reads as one mark.

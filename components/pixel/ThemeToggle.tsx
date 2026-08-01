@@ -22,7 +22,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     try {
       localStorage.setItem("wispr-theme", next);
     } catch {
-      // localStorage blocked — toggle still works for this tab.
+      // localStorage blocked: toggle still works for this tab.
     }
   }
 

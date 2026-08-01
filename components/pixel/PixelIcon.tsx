@@ -20,8 +20,8 @@ export interface PixelIconProps {
 
 // Single source of truth for utility icons: any small consistent
 // pictogram (button leading icon, badge label, table affordance, etc.)
-// renders through here. Branded illustrations — the Wisp mascot, the
-// marquee chrome, the OG image card — stay hand-rolled.
+// renders through here. Branded illustrations (the Wisp mascot, the
+// marquee chrome, the OG image card) stay hand-rolled.
 //
 // Rendering strategy: external SVG sprite via <use href="...#px-name">.
 // Pixelarticons paths declare fill="currentColor"; the consumer's color

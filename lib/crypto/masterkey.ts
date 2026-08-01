@@ -3,7 +3,7 @@
 //
 // The master KEK is a non-extractable AES-GCM CryptoKey: page script can never
 // read its raw bytes. It wraps/unwraps per-snippet DEKs (which do transit the
-// main thread — bounded, per-item exposure, never the master key).
+// main thread: bounded, per-item exposure, never the master key).
 //
 // During a passphrase change we hold a second "next" KEK alongside the current
 // one so DEKs can be re-wrapped (unwrap with current, wrap with next) before
@@ -50,7 +50,7 @@ async function deriveChains(
     },
     material,
     { name: "AES-GCM", length: 256 },
-    false, // non-extractable — raw KEK bytes never leave the worker
+    false, // non-extractable: raw KEK bytes never leave the worker
     ["encrypt", "decrypt"],
   );
   return { authToken: new Uint8Array(authBits), kek };
@@ -71,7 +71,7 @@ export async function deriveKeys(
   return { authToken };
 }
 
-/** Derive only the auth token from a passphrase — no KEK side effects. Used
+/** Derive only the auth token from a passphrase (no KEK side effects). Used
  *  for re-auth (proving the current passphrase) without disturbing the held
  *  master KEK, so a wrong guess can't clobber an unlocked session. */
 export async function deriveAuthToken(
@@ -131,7 +131,7 @@ export async function unwrap(wrapped: Uint8Array, iv: Uint8Array): Promise<Uint8
   return new Uint8Array(dek);
 }
 
-/** Re-wrap a DEK from the current KEK to the pending next KEK — unwrap with the
+/** Re-wrap a DEK from the current KEK to the pending next KEK: unwrap with the
  *  current, wrap with the next, all inside the worker. Used per Sync item
  *  during a passphrase change. */
 export async function rewrapToNext(
@@ -162,7 +162,7 @@ export function discardNext(): void {
   nextKek = null;
 }
 
-/** Drop all key material from memory — on lock, logout, or tab close. */
+/** Drop all key material from memory (on lock, logout, or tab close). */
 export function clear(): void {
   masterKek = null;
   nextKek = null;

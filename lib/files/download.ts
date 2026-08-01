@@ -1,6 +1,6 @@
 // Fetch a file's ciphertext chunks from R2 (presigned GETs) and decrypt them
-// in order — each chunk's index is bound as AAD, so an out-of-order or swapped
-// chunk fails to decrypt — then concatenate into the original plaintext.
+// in order (each chunk's index is bound as AAD, so an out-of-order or swapped
+// chunk fails to decrypt), then concatenate into the original plaintext.
 
 import { openChunk } from "@/lib/files/chunk";
 

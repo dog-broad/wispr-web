@@ -46,7 +46,7 @@ function getWorker(): Worker {
   return worker;
 }
 
-// Distributive Omit keeps the discriminated union intact — `Omit` on a
+// Distributive Omit keeps the discriminated union intact: `Omit` on a
 // raw union collapses to the common properties, which loses op narrowing.
 type WithoutId<T> = T extends { id: number } ? Omit<T, "id"> : never;
 
@@ -123,7 +123,7 @@ export async function unwrapDek(wrapped: Uint8Array, iv: Uint8Array): Promise<Ui
   return unwrap<UnwrapResult>(response, "unwrap").dek;
 }
 
-/** Derive only the auth token from a passphrase — no KEK side effects. For
+/** Derive only the auth token from a passphrase: no KEK side effects. For
  *  re-auth (proving the current passphrase) without disturbing the held KEK. */
 export async function deriveAuthToken(
   passphrase: string,

@@ -47,7 +47,7 @@ export function PassphrasePrompt() {
     try {
       const authToken = await deriveKeys(passphrase, salts.auth, salts.master);
       await unlock(authToken);
-      // Correct passphrase — the KEK is now held in the worker for this tab.
+      // Correct passphrase: the KEK is now held in the worker for this tab.
       router.push(next as Parameters<typeof router.push>[0]);
     } catch (err) {
       // Wrong passphrase derived a bad KEK; drop it before letting them retry.

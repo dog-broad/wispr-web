@@ -1,7 +1,7 @@
 // Typed WebSocket wrapper over /ws/pair.
 //
 // The relay is opaque from the server's perspective for ``signal``
-// frames — the server only inspects the ``op`` field. Both sides
+// frames: the server only inspects the ``op`` field. Both sides
 // nest their own protocol inside ``signal.payload`` (defined below):
 // ECDH public keys, SDP offers/answers, and ICE candidates.
 

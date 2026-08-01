@@ -6,7 +6,7 @@
 // dot-access on `process.env` (e.g. `process.env.NEXT_PUBLIC_FOO`). Next.js
 // only inlines `NEXT_PUBLIC_*` vars into the client bundle when it can
 // statically prove the variable name at build time. A `process.env[name]`
-// dynamic indexed access — even via a tiny helper function — is opaque to
+// dynamic indexed access (even via a tiny helper function) is opaque to
 // the bundler, so it ships the lookup as-is and the runtime browser shim
 // returns `undefined`. The result is the fallback wins on every prod page
 // silently, which is the worst kind of bug. Keep the reads literal.
@@ -21,7 +21,7 @@ function trimTrailingSlash(url: string): string {
 const HTTP_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 // WebSocket base for `new WebSocket(...)`. Must always be an absolute
-// ws/wss URL — the browser rejects relative URLs for WebSocket, and
+// ws/wss URL: the browser rejects relative URLs for WebSocket, and
 // Next rewrites don't proxy WS upgrades anyway. When unset, we derive
 // it from HTTP_BASE: absolute http(s) URLs flip to ws(s) cleanly;
 // relative HTTP bases need WS_BASE configured explicitly.
@@ -45,7 +45,7 @@ const BUILD_WS_BASE =
 // host wispr-api.rushyendra.dev. Anywhere else (platform-provided
 // aliases, restricted-network fallback) the build-time value applies.
 //
-// SSR has no window, so this branch is silently a no-op there — the
+// SSR has no window, so this branch is silently a no-op there: the
 // env object below resolves to the build-time value on the server and
 // to the runtime value in the browser. Since the WS object is only
 // constructed in the browser, that asymmetry is harmless.
@@ -58,7 +58,7 @@ if (typeof window !== "undefined") {
 }
 
 // Cloudflare Turnstile site key (public). When empty, the challenge widget is
-// omitted and requests carry no token — the API bypasses the check in that
+// omitted and requests carry no token: the API bypasses the check in that
 // case (local dev). Must be a literal env read for Next to inline it.
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 

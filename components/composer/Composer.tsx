@@ -87,12 +87,12 @@ export function Composer() {
   const signedIn = session !== null;
   const online = useOnline();
   // Large files (over the inline cap) go to R2, which only Link/PIN wire up
-  // for now — Save to My clips stays for text + small content.
+  // for now. Save to My clips stays for text + small content.
   const largeFile = attachedFile !== null && attachedFile.size > INLINE_MAX_BYTES;
 
   // Content-type detection runs on every keystroke. URL takes priority
   // over language because a single-URL share gets its own rich preview
-  // surface on receive — code-like detection inside a URL string would
+  // surface on receive; code-like detection inside a URL string would
   // misclassify (URL paths happen to contain JS-ish punctuation).
   const detectedUrl = attachedFile === null ? detectUrl(text) : null;
   const detectedLanguage =
@@ -129,7 +129,7 @@ export function Composer() {
         if (mode === "sync") {
           // Mode 4: seal under a per-clip DEK wrapped by the master KEK. That
           // KEK lives only in this tab's worker, so a locked tab must unlock
-          // first — stash the draft and bounce through /unlock so nothing typed
+          // first: stash the draft and bounce through /unlock so nothing typed
           // is lost. Unlock needs the network, so a locked + offline tab can't
           // save at all.
           const { hasKeys } = await import("@/lib/crypto/client");
@@ -196,7 +196,7 @@ export function Composer() {
         }
 
         // Compute the optional password gate: PBKDF2 runs client-side so the
-        // raw password never reaches the server — only the derived hash + salt.
+        // raw password never reaches the server: only the derived hash + salt.
         let passwordGate: PasswordGate | undefined;
         if (passwordEnabled && password.length > 0) {
           const salt = generatePasswordSalt();
@@ -488,7 +488,7 @@ Encrypted in your browser before it leaves."
               {signedIn && (
                 // Members: saving to My clips is the default action (Cmd+Enter).
                 // Inline clips queue offline; a large file uploads to R2, so it
-                // needs a connection — the button disables offline in that case.
+                // needs a connection; the button disables offline in that case.
                 <PixelButton
                   variant="primary"
                   size="lg"

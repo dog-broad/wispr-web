@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { getSession, type SessionInfo } from "@/lib/api/auth";
 
-// Client-side auth signal. PIN-share (Mode 2) only needs "am I signed in?" —
-// it uses a per-share random content key the server wraps, not the master KEK,
+// Client-side auth signal. PIN-share (Mode 2) only needs "am I signed in?".
+// It uses a per-share random content key the server wraps, not the master KEK,
 // so an unlocked passphrase isn't required to create one.
 export function useSession(): { session: SessionInfo | null; loading: boolean } {
   const [session, setSession] = useState<SessionInfo | null>(null);

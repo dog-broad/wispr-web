@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { env } from "@/lib/env";
 
 // Minimal Cloudflare Turnstile integration via explicit render. Renders
-// nothing when no site key is configured (local dev) — the caller then submits
+// nothing when no site key is configured (local dev). The caller then submits
 // with no token and the API bypasses the check. When a key is present it loads
 // the Turnstile script once, renders the widget, and reports the token.
 

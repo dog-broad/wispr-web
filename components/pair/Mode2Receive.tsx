@@ -110,7 +110,7 @@ async function decryptPinShare(data: PinShareData): Promise<View> {
     return { kind: "ok", text, lang, snippetId: data.id };
   } catch {
     // A decrypt failure here means the server's content key didn't match the
-    // ciphertext — a server-side fault, not a wrong client key (Mode 2 keys
+    // ciphertext: a server-side fault, not a wrong client key (Mode 2 keys
     // come from the server).
     return { kind: "error" };
   }

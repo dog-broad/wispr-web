@@ -1,5 +1,5 @@
 // Encrypt a file in 1 MiB chunks and PUT each ciphertext chunk straight to R2
-// via presigned URLs. The bytes never transit the API — only the presign +
+// via presigned URLs. The bytes never transit the API: only the presign +
 // finalize calls do. Returns the storage key + chunk count for finalize.
 
 import { presignChunks } from "@/lib/api/files";

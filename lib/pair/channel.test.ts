@@ -30,7 +30,7 @@ describe("pair/channel codec", () => {
     const a = await encryptText(aliceKey, "same message");
     const b = await encryptText(aliceKey, "same message");
     // Frame layout: 12-byte IV || ciphertext. The IVs (and therefore
-    // ciphertexts) must differ across calls — reusing an IV with the
+    // ciphertexts) must differ across calls. Reusing an IV with the
     // same key under AES-GCM is catastrophic.
     expect(a.slice(0, 12)).not.toEqual(b.slice(0, 12));
   });

@@ -19,7 +19,7 @@ export interface PinShareData {
 }
 
 // Every distinct /r outcome (§7.6.7 #1–7, plus pair + Turnstile) as a tagged
-// union so the receiver renders each with dedicated copy — no generic fall.
+// union so the receiver renders each with dedicated copy: no generic fall.
 export type ByPinResult =
   | { kind: "pin_share"; data: PinShareData }
   | { kind: "pair" }

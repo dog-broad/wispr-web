@@ -19,13 +19,13 @@ export interface PixelSelectPillProps<T extends string | number> {
    *  for surfaces where a future feature is represented in the UI but not
    *  yet functional. */
   disabled?: boolean;
-  /** Optional native title for hover help — used to call out deferred
+  /** Optional native title for hover help, used to call out deferred
    *  features (e.g. "passphrase coming later"). */
   title?: string;
 }
 
 // A PixelPill that opens a real dropdown. Visually identical to
-// PixelPill — same border, same chevron, same chrome — but a native
+// PixelPill (same border, same chevron, same chrome) but a native
 // <select> sits at opacity 0 on top of it so clicks land on a browser-
 // owned control. The browser handles keyboard nav, focus rings, and on
 // mobile renders a native wheel picker, all without us shipping a

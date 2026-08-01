@@ -27,7 +27,7 @@ type Phase =
 const PIN_LENGTH = 4;
 
 interface ReceiverProps {
-  /** Optional PIN prefill from the URL — QR codes route in via
+  /** Optional PIN prefill from the URL: QR codes route in via
    *  /r?pin=XXXX so the entry box is filled before the user touches it. */
   initialPin?: string;
 }
@@ -38,7 +38,7 @@ export function Receiver({ initialPin }: ReceiverProps) {
   );
   const [phase, setPhase] = useState<Phase>({ kind: "entering" });
   const sessionRef = useRef<PairSession | null>(null);
-  // Destructure for stable useCallback references — see PairSender for
+  // Destructure for stable useCallback references: see PairSender for
   // the same fix and the bug it prevents (effect re-fire per render
   // because the wrapper object identity changes).
   const {
@@ -244,7 +244,7 @@ function StatusLine({ phase }: { phase: Phase }) {
       </p>
     );
   }
-  // ``failed`` — the ConnectBanner up top already renders the §7.6.7
+  // ``failed``: the ConnectBanner up top already renders the §7.6.7
   // copy for every reachable reason, so the status line stays out of
   // the way to avoid duplicate messaging.
   return null;
@@ -265,7 +265,7 @@ function describePhase(phase: PairPhase): string {
   }
 }
 
-// QR scanning behaves differently across platforms — iOS and Android
+// QR scanning behaves differently across platforms: iOS and Android
 // camera apps both auto-detect QRs in the viewfinder, so the most
 // reliable mobile path is "point your phone camera at the QR" without
 // us shipping a JS scanner. The full in-page camera + decoder lives in

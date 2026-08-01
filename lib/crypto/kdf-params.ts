@@ -1,5 +1,5 @@
 // Shared KDF parameters for the account passphrase (main-thread-safe: no key
-// state lives here). Two independent PBKDF2 chains from the same passphrase —
+// state lives here). Two independent PBKDF2 chains from the same passphrase:
 // an auth token the server verifies, and the master KEK that wraps Sync DEKs.
 // Independence comes from different iteration counts, salts, and domain labels.
 

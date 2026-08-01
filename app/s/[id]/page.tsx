@@ -7,7 +7,7 @@ interface PageProps {
 }
 
 // Server component. We deliberately render only a Header / Footer shell
-// at SSR time — the actual fetch + decrypt happens in the Receive
+// at SSR time. The actual fetch + decrypt happens in the Receive
 // client component once the URL fragment is available. The page is
 // noindex via the layout's metadata + the X-Robots-Tag header (set in
 // next.config.ts), so a stray crawler that hits the SSR shell sees an

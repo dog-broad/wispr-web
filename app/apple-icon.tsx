@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 // Apple touch icon (opaque PNG for the iOS home screen). Renders the brand
-// spark — the same mark as the SVG favicon — as Satori-safe divs on navy.
+// spark (the same mark as the SVG favicon) as Satori-safe divs on navy.
 export const runtime = "edge";
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";

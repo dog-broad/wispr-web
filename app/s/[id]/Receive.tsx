@@ -334,7 +334,7 @@ async function safeJson<T>(response: Response): Promise<T | null> {
 }
 
 // Decrypt + parse the encrypted_metadata envelope. Returns ``null`` on
-// any failure (missing field, decrypt error, JSON parse error) — the
+// any failure (missing field, decrypt error, JSON parse error). The
 // caller falls back to defaults rather than failing the whole receive.
 async function decryptMetadata(
   cryptoMod: typeof import("@/lib/crypto/client"),

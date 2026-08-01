@@ -1,9 +1,9 @@
 // Builds a standalone, offline HTML decryptor around an export bundle.
 //
 // The bundle JSON (from GET /me/export) is embedded verbatim into a single
-// self-contained .html file: no network, no fonts, no scripts loaded — just
+// self-contained .html file: no network, no fonts, no scripts loaded, just
 // inline vanilla WebCrypto that re-derives the master key from the passphrase
-// and decrypts every clip in the browser. This is the escape hatch — it must
+// and decrypts every clip in the browser. This is the escape hatch: it must
 // keep working years from now with the service gone, so it depends on nothing
 // but the platform's `crypto.subtle`.
 //

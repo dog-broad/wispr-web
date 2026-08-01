@@ -4,7 +4,7 @@
 // deriving any new key or touching the held KEK, so a wrong guess can't clobber
 // an unlocked session. Then re-wrap every Sync DEK from the current KEK to the
 // new one and submit the whole thing in a single atomic request. The new KEK is
-// only promoted to "current" once the server accepts — on any failure the
+// only promoted to "current" once the server accepts. On any failure the
 // pending key is discarded and the session keeps working with the old key.
 
 import { changePassphrase, getSession, unlock, type RewrappedDek } from "@/lib/api/auth";
@@ -26,7 +26,7 @@ export class NoPassphraseError extends Error {}
 /**
  * Change the passphrase. `onProgress` reports the running count of re-wrapped
  * clips. Throws {@link import("@/lib/api/auth").AuthError} 401 (wrong current),
- * 423 (locked), or 409 (a clip was saved mid-change — retry).
+ * 423 (locked), or 409 (a clip was saved mid-change, retry).
  */
 export async function changeMyPassphrase(
   currentPassphrase: string,
@@ -38,7 +38,7 @@ export async function changeMyPassphrase(
     throw new NoPassphraseError("no active passphrase to change");
   }
 
-  // Re-auth first — no key side effects on a wrong guess.
+  // Re-auth first: no key side effects on a wrong guess.
   const currentAuthToken = await deriveAuthToken(currentPassphrase, session.authCredentialSalt);
   await unlock(currentAuthToken);
 
@@ -73,7 +73,7 @@ export async function changeMyPassphrase(
       newMasterSalt,
       rewrapped,
     });
-    // Server accepted — the new KEK is now the session's key.
+    // Server accepted: the new KEK is now the session's key.
     await commitNextKey();
   } catch (err) {
     await discardNextKey();

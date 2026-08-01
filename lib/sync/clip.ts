@@ -3,7 +3,7 @@
 // Each clip gets a fresh per-snippet DEK. The content and metadata are
 // AES-GCM'd under the DEK; the DEK itself is wrapped by the tab's master KEK
 // (held only inside the crypto worker). The server therefore stores just the
-// ciphertext + the wrapped DEK — never the DEK, never the KEK (zero-knowledge).
+// ciphertext + the wrapped DEK: never the DEK, never the KEK (zero-knowledge).
 
 import type { SyncItem } from "@/lib/api/sync";
 import { decodeMetadata, encodeMetadata, type ClipMetadata } from "@/lib/clip/metadata";

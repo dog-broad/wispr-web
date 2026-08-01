@@ -7,7 +7,7 @@
 // verify out-of-band against a man-in-the-middle.
 //
 // Forward secrecy comes for free because the keypairs are ephemeral and
-// never persisted — once the session closes, the data is unrecoverable
+// never persisted. Once the session closes, the data is unrecoverable
 // even if both peers' machines are later seized.
 //
 // The two HKDF labels ("wispr-pair-v1" and "wispr-pair-sas") domain-
@@ -22,7 +22,7 @@ const SAS_INFO = "wispr-pair-sas";
 const SAS_CHARS = 4;
 const SAS_BITS_PER_CHAR = 5;
 
-// Crockford base32 — excludes I/L/O/U so SAS reads cleanly over voice
+// Crockford base32: excludes I/L/O/U so SAS reads cleanly over voice
 // and never confuses 0/O or 1/I/L. The 32 symbols cover exactly five
 // bits each, which lines up with the 20-bit SAS budget from
 // [D-0024-01].
@@ -58,7 +58,7 @@ export async function generateEphemeralKeypair(): Promise<EphemeralKeypair> {
 }
 
 /** Serialise an ECDH public key to a URL-safe base64 string. The "raw"
- *  format is the SEC1 uncompressed point (65 bytes for P-256) — the
+ *  format is the SEC1 uncompressed point (65 bytes for P-256), the
  *  interoperable on-the-wire shape. */
 export async function exportPublicKey(key: CryptoKey): Promise<string> {
   const raw = await crypto.subtle.exportKey("raw", key);
@@ -80,7 +80,7 @@ export async function importPeerPublicKey(encoded: string): Promise<CryptoKey> {
 /** Run ECDH + HKDF to produce the AES-GCM session key and the SAS for
  *  this peer pair. Both peers feed the same shared secret in (different
  *  paths through their own private / peer public keys), so both
- *  reproduce the same session key and the same SAS — verifying the SAS
+ *  reproduce the same session key and the same SAS. Verifying the SAS
  *  out-of-band proves no operator MITM was inserted. */
 export async function deriveSessionMaterial(
   ownPrivateKey: CryptoKey,
@@ -97,7 +97,7 @@ export async function deriveSessionMaterial(
 
   // Wrap the shared secret as HKDF input keying material. The same
   // handle is used twice with different ``info`` labels to derive the
-  // session key and the SAS bits — distinct outputs by domain
+  // session key and the SAS bits, distinct outputs by domain
   // separation.
   const hkdf = await crypto.subtle.importKey(
     "raw",

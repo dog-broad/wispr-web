@@ -1,6 +1,6 @@
 // Map every reachable wire failure reason to the user-facing copy from
 // PROJECT.md §7.6.7. The spec's contract is "no generic-error
-// fallthrough" — every branch the receiver can land on has its own
+// fallthrough": every branch the receiver can land on has its own
 // titled paragraph.
 //
 // Reasons fall in two groups:
@@ -89,7 +89,7 @@ const SERVER_REASONS: Record<string, OutcomeCopy> = {
   // §7.6.7 #17 — connection to the relay dropped before the pair was
   // established. Lump the WebSocket-level error cases here; the user
   // doesn't need to distinguish "the server hung up" from "the
-  // transport errored" — the action is the same.
+  // transport errored". The action is the same.
   signaling_closed: {
     title: "Couldn't reach Wispr.",
     body: "Check your connection and try again.",
@@ -108,7 +108,7 @@ const SERVER_REASONS: Record<string, OutcomeCopy> = {
     action: "start over",
   },
   // Synthesised by the session's 15s watchdog when neither ICE nor the
-  // data channel converges. Same UX as rtc_failed — the user can't tell
+  // data channel converges. Same UX as rtc_failed: the user can't tell
   // the difference and the action is the same.
   negotiation_timeout: {
     title: "Couldn't establish a direct connection.",
@@ -132,7 +132,7 @@ const SERVER_REASONS: Record<string, OutcomeCopy> = {
 };
 
 // Last-line copy for reasons that aren't in the table. The §7.6.7
-// "no generic-error fallthrough" rule still applies — this exists to
+// "no generic-error fallthrough" rule still applies. This exists to
 // catch additions that haven't been wired into the table yet, with
 // language that nudges the operator to file a real outcome. It should
 // never reach production.

@@ -85,7 +85,7 @@ export function OkCard({
 }: {
   text: string;
   lang: Language | null;
-  // Optional trailing action rendered in the button row — PIN receives pass a
+  // Optional trailing action rendered in the button row: PIN receives pass a
   // report control here; Link receives leave it undefined.
   extraAction?: ReactNode;
 }) {

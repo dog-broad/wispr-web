@@ -13,8 +13,8 @@ interface InstallPromptEvent extends Event {
 const VISIT_KEY = "wispr-visits";
 const DISMISS_KEY = "wispr-install-dismissed";
 
-// Registers the app-shell service worker (production only — it fights HMR under
-// `next dev`) and shows a one-time install prompt, but only from the second
+// Registers the app-shell service worker (production only, since it fights HMR
+// under `next dev`) and shows a one-time install prompt, but only from the second
 // visit on, so a first-time visitor isn't nagged before they've used anything.
 export function PwaSetup() {
   const [deferred, setDeferred] = useState<InstallPromptEvent | null>(null);
@@ -24,7 +24,7 @@ export function PwaSetup() {
     if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {
         // Registration failing (private mode, unsupported) must never break the
-        // page — the app works fine online without the shell cache.
+        // page: the app works fine online without the shell cache.
       });
     }
 

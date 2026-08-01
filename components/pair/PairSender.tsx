@@ -15,7 +15,7 @@ import { env } from "@/lib/env";
 import { PairSession, type PairFailure, type PairPhase } from "@/lib/pair/session";
 
 // PIN-issuance state machine. The session-connection state machine
-// lives in ``SessionState`` and overlays this — the PIN may have been
+// lives in ``SessionState`` and overlays this: the PIN may have been
 // issued and counted down even while the encrypted channel is up.
 type IssueState =
   | { kind: "loading" }
@@ -39,7 +39,7 @@ export function PairSender() {
   const tickRef = useRef<number | null>(null);
   const sessionRef = useRef<PairSession | null>(null);
   // Destructure the hook return so the effect below can depend on the
-  // stable useCallback references rather than the wrapper object —
+  // stable useCallback references rather than the wrapper object,
   // which is a fresh literal every render and would otherwise re-fire
   // the effect on every countdown tick, churning a new
   // RTCPeerConnection each second until Chrome's per-tab cap hits.

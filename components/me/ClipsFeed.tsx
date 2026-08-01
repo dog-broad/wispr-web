@@ -48,7 +48,7 @@ interface ClipView {
   lang?: Language;
 }
 
-// Decrypt a raw feed item into a render model. A failure here is not fatal —
+// Decrypt a raw feed item into a render model. A failure here is not fatal:
 // a single un-decryptable item (e.g. saved under a previous master key) is
 // shown with an error affordance rather than tearing down the whole feed.
 async function toView(item: SyncItem): Promise<ClipView> {
@@ -354,7 +354,7 @@ function ClipRow({
 }) {
   const router = useRouter();
   const [reshare, setReshare] = useState<ReshareState>({ kind: "idle" });
-  // Pair is a live channel — only text-likes can be pre-loaded into it.
+  // Pair is a live channel: only text-likes can be pre-loaded into it.
   const canPair = view.contentType !== "file";
 
   async function toLink() {

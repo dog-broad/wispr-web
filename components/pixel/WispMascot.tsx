@@ -24,13 +24,13 @@ export interface WispMascotProps {
 //
 // Silhouette is a clean rounded balloon: domed top, straight sides
 // (no protruding arms), four small scallop humps at the bottom. Eye
-// expression is state-dependent — sparkle eyes by default, X eyes for
+// expression is state-dependent: sparkle eyes by default, X eyes for
 // errors, hearts for success, slits for sleep, ^_^ curves for wave.
 
 type Row = readonly [y: number, x0: number, x1: number];
 
 const CREAM_ROWS: readonly Row[] = [
-  // Rounder dome — narrow 6-wide top, three rows of +2 widening up front
+  // Rounder dome: narrow 6-wide top, three rows of +2 widening up front
   // then taper to +1.
   [1, 13, 18], // 6
   [2, 11, 20], // 10 (+2)
@@ -40,7 +40,7 @@ const CREAM_ROWS: readonly Row[] = [
   [6, 5, 26], // 22 (+1)
   [7, 4, 27], // 24 (+1) — face starts
   [8, 4, 27], // 24 — eye row
-  // Belly bulge — body widens out PAST the dome max (24 → 26) so the
+  // Belly bulge: body widens out PAST the dome max (24 → 26) so the
   // silhouette reads as an oval, not a tube. Cream at cols 3..28 here.
   [9, 3, 28], // 26 (+1 each)
   [10, 3, 28],
@@ -76,7 +76,7 @@ const NAVY_EXTRAS: readonly { x: number; y: number; w?: number }[] = [
   { x: 22, y: 2 },
   { x: 7, y: 3 },
   { x: 24, y: 3 },
-  // valley fills between scallop humps — close the body's bottom edge
+  // valley fills between scallop humps: close the body's bottom edge
   // where humps don't continue cream
   { x: 11, y: 23, w: 2 },
   { x: 19, y: 23, w: 2 },
@@ -152,7 +152,7 @@ function Body({ state, animate }: { state: WispState; animate: boolean }) {
         />
       ))}
 
-      {/* subtle right-side shading — follows the new oval silhouette,
+      {/* subtle right-side shading: follows the new oval silhouette,
           inset 1 px from the cream edge so the curve reads as volume */}
       <rect x="22" y="3" width="1" height="3" fill={creamShade} opacity="0.5" />
       <rect x="25" y="6" width="1" height="3" fill={creamShade} opacity="0.45" />
@@ -195,7 +195,7 @@ function Eyes({ state, animate }: { state: WispState; animate: boolean }) {
     state === "pairing";
 
   if (state === "sleeping") {
-    // Sleepy slits — narrow horizontal lines, 5 wide
+    // Sleepy slits: narrow horizontal lines, 5 wide
     return (
       <g>
         <rect x="7" y="10" width="5" height="1" fill={navy} />
@@ -205,12 +205,12 @@ function Eyes({ state, animate }: { state: WispState; animate: boolean }) {
   }
 
   if (state === "error") {
-    // X eyes — dizzy/error
+    // X eyes: dizzy/error
     return <g>{xEye(7, 8, navy)}{xEye(20, 8, navy)}</g>;
   }
 
   if (state === "success") {
-    // Heart eyes — pink love
+    // Heart eyes: pink love
     return (
       <g>
         {heartEye(7, 8, pink)}
@@ -229,7 +229,7 @@ function Eyes({ state, animate }: { state: WispState; animate: boolean }) {
     );
   }
 
-  // Default — kawaii sparkle eyes
+  // Default: kawaii sparkle eyes
   return (
     <g
       className={animate && blinks ? "anim-wisp-blink" : ""}
@@ -239,7 +239,7 @@ function Eyes({ state, animate }: { state: WispState; animate: boolean }) {
       <rect x="7" y="8" width="5" height="5" fill={navy} />
       {/* right iris 5x5 */}
       <rect x="20" y="8" width="5" height="5" fill={navy} />
-      {/* single white sparkle 2x2, upper-left — drifts on a slow cycle */}
+      {/* single white sparkle 2x2, upper-left, drifts on a slow cycle */}
       <g
         className={animate ? "anim-wisp-sparkle" : ""}
         style={{ transformOrigin: "16px 10px" }}
@@ -269,7 +269,7 @@ function xEye(cx: number, cy: number, color: string) {
 }
 
 function heartEye(cx: number, cy: number, color: string) {
-  // 5×5 heart sprite — two lumps at top, V tip at bottom
+  // 5×5 heart sprite: two lumps at top, V tip at bottom
   return (
     <g key={`h-${cx}`} fill={color}>
       <rect x={cx + 1} y={cy} width="1" height="1" />
@@ -282,7 +282,7 @@ function heartEye(cx: number, cy: number, color: string) {
 }
 
 function happyArc(cx: number, cy: number, color: string) {
-  // ^_^ shape — peak at center, tails curving down. 5 wide × 3 tall.
+  // ^_^ shape: peak at center, tails curving down. 5 wide × 3 tall.
   return (
     <g key={`a-${cx}`} fill={color}>
       <rect x={cx + 2} y={cy + 1} width="1" height="1" />
@@ -390,14 +390,14 @@ function SendingAccessory({ animate }: { animate: boolean }) {
       <rect x="26" y="3" width="1" height="4" fill={navy} />
       {/* envelope — cream interior */}
       <rect x="20" y="3" width="6" height="4" fill={cream} />
-      {/* V flap — diagonal navy lines meeting at the centre, three pairs
+      {/* V flap: diagonal navy lines meeting at the centre, three pairs
           of pixels descending toward the seal */}
       <rect x="20" y="3" width="1" height="1" fill={navy} />
       <rect x="25" y="3" width="1" height="1" fill={navy} />
       <rect x="21" y="4" width="1" height="1" fill={navy} />
       <rect x="24" y="4" width="1" height="1" fill={navy} />
       <rect x="22" y="5" width="2" height="1" fill={navy} />
-      {/* streaming trail — three vertical 2-tall marigold bars, each
+      {/* streaming trail: three vertical 2-tall marigold bars, each
           fading in/out on its own delay */}
       <rect
         x="28"
@@ -481,7 +481,7 @@ function PairingAccessory({ animate }: { animate: boolean }) {
   const navy = "var(--color-navy)";
   return (
     <g>
-      {/* origin dot — above the right eye */}
+      {/* origin dot: above the right eye */}
       <rect x="22" y="3" width="2" height="2" fill={moss} />
       <rect x="22" y="3" width="2" height="1" fill={navy} opacity="0.35" />
       <g className={animate ? "anim-wisp-pair-1" : ""}>
@@ -504,7 +504,7 @@ function PairingAccessory({ animate }: { animate: boolean }) {
 }
 
 function WaveAccessory({ animate }: { animate: boolean }) {
-  // Sheet ghosts don't wave — they twinkle. Four small marigold sparkle
+  // Sheet ghosts don't wave; they twinkle. Four small marigold sparkle
   // crosses positioned around the ghost, each fading in and out in turn
   // on a 2.4 s loop so the whole field feels alive. Paired with the ^_^
   // closed-eye grin, this reads as "hi there!" without needing arms.
@@ -522,7 +522,7 @@ function WaveAccessory({ animate }: { animate: boolean }) {
     <g>
       {sparkles.map(({ cx, cy, fill, cls }, i) => (
         <g key={i} className={animate ? cls : ""} fill={fill}>
-          {/* 3-pixel cross — reads as a sparkle/star */}
+          {/* 3-pixel cross: reads as a sparkle/star */}
           <rect x={cx} y={cy - 1} width="1" height="1" />
           <rect x={cx - 1} y={cy} width="3" height="1" />
           <rect x={cx} y={cy + 1} width="1" height="1" />

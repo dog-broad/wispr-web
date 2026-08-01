@@ -5,11 +5,11 @@
 // operator man-in-the-middle was inserted into signaling. Verifying it
 // out-of-band (read it over voice, glance across the desk) is the
 // user-facing recourse. The UX rule is "send first, verify if you
-// care" — the code is shown but doesn't gate the channel.
+// care"; the code is shown but doesn't gate the channel.
 //
 // Failure rendering: ``copyForFailure`` maps every reachable wire
 // reason to dedicated copy from PROJECT.md §7.6.7, so the receiver
-// never falls through to a generic "something went wrong" — that's
+// never falls through to a generic "something went wrong"; that's
 // the explicit anti-goal in the spec.
 
 "use client";

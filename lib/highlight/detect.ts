@@ -1,5 +1,5 @@
 // Lightweight language detector. The heuristic is intentionally
-// conservative — it returns ``null`` when no signal is strong enough,
+// conservative: it returns ``null`` when no signal is strong enough,
 // which the composer treats as "ship as plain text, no syntax
 // highlight." False negatives cost a missing highlight; false
 // positives ship the wrong colors and feel worse.
@@ -19,7 +19,7 @@ const SHEBANG = /^#!\s*(?:\/\S+\/)?(?:env\s+)?(\w+)/;
 
 interface LanguageProbe {
   /** Patterns that strongly suggest this language. Each match counts
-   *  once regardless of how many times it occurs — we're scoring
+   *  once regardless of how many times it occurs: we're scoring
    *  presence, not density. */
   patterns: RegExp[];
 }
@@ -92,7 +92,7 @@ const SHEBANG_LANGS: Record<string, Language> = {
 /** Detect the most likely language for ``text``, or ``null`` when
  *  no language probes clearly. */
 export function detectLanguage(text: string): Language | null {
-  // Too short to detect reliably — anything under ~12 chars is more
+  // Too short to detect reliably: anything under ~12 chars is more
   // likely a paste fragment than meaningful code.
   if (text.length < 12) return null;
 
@@ -105,7 +105,7 @@ export function detectLanguage(text: string): Language | null {
     }
   }
 
-  // 2) JSON probe — only count if the root parses as an object/array
+  // 2) JSON probe: only count if the root parses as an object/array
   // and the input starts with a brace/bracket (so a stray ``true`` in
   // prose doesn't tag it as JSON).
   const trimmed = text.trim();
@@ -120,7 +120,7 @@ export function detectLanguage(text: string): Language | null {
     }
   }
 
-  // 3) Per-language scoring. We want a clear winner — a single match
+  // 3) Per-language scoring. We want a clear winner: a single match
   // can fire incidentally in prose, so require ≥ 2 distinct probe
   // hits AND a margin of at least 1 over the runner-up before we
   // commit to a language.

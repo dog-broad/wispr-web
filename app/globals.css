@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* Digits-only VT323 face, layered ahead of Pixelify Sans in --font-body so
-   every 0-9 renders in VT323 automatically — in prose, placeholders, labels,
-   everywhere — with no per-span `.num` wrapping. (Pixelify's own 2 and 5 read
+   every 0-9 renders in VT323 automatically (in prose, placeholders, labels,
+   everywhere) with no per-span `.num` wrapping. (Pixelify's own 2 and 5 read
    poorly.) Letters fall through to Pixelify because this face only claims the
    digit code points. Self-hosted to satisfy the `font-src 'self'` CSP. */
 @font-face {
@@ -120,7 +120,7 @@ canvas,
   image-rendering: crisp-edges;
 }
 
-/* Any digit/number/time/code in UI chrome uses VT323 — terminal-clear
+/* Any digit/number/time/code in UI chrome uses VT323: terminal-clear
    numerals. Pixelify Sans collapses 1/I/l and O/0 at small sizes; VT323
    keeps them legible. Apply to <span class="num">…</span> or via
    font-pixel-num utility. */

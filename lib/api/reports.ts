@@ -7,7 +7,7 @@ import { env } from "@/lib/env";
 export type ReportReasonCategory = "spam" | "malware" | "illegal" | "harassment" | "other";
 
 // Every distinct /reports outcome as a tagged union so the UI renders each with
-// dedicated copy — no generic fall-through.
+// dedicated copy: no generic fall-through.
 export type ReportResult =
   | { kind: "ok" }
   | { kind: "turnstile_required" }

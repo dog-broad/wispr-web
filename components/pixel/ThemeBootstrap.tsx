@@ -10,7 +10,7 @@ const bootstrapScript = `
     var theme = saved || (systemDark ? "dark" : "light");
     document.documentElement.setAttribute("data-theme", theme);
   } catch (_) {
-    // localStorage blocked — fall through to default cream.
+    // localStorage blocked: fall through to default cream.
   }
 })();
 `;
@@ -18,7 +18,7 @@ const bootstrapScript = `
 export function ThemeBootstrap() {
   return (
     <script
-      // The script content is a string constant — no user input — and runs
+      // The script content is a string constant (no user input) and runs
       // before hydration to prevent a theme flash. dangerouslySetInnerHTML is
       // the documented Next.js path for inline scripts of this kind.
       dangerouslySetInnerHTML={{ __html: bootstrapScript }}

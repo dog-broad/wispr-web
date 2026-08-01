@@ -1,6 +1,6 @@
 // PBKDF2 helper for the Link password gate ([D-260526-01]).
 //
-// This isn't part of the content-encryption path — the snippet's
+// This isn't part of the content-encryption path; the snippet's
 // AES-GCM key still lives in the URL fragment. The password is a
 // separate access-control gate the server enforces with a
 // constant-time hash compare. Doing the PBKDF2 client-side means the
@@ -13,7 +13,7 @@ const SALT_BYTES = 16;
 export const PASSWORD_HASH_BYTES = HASH_BYTES;
 export const PASSWORD_SALT_BYTES = SALT_BYTES;
 
-/** Fresh 16-byte random salt — one per snippet at create time. */
+/** Fresh 16-byte random salt, one per snippet at create time. */
 export function generatePasswordSalt(): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(SALT_BYTES));
 }

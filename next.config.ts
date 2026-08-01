@@ -24,7 +24,7 @@ const SCRIPT_SRC =
 
 // ``'self'`` covers the same-origin /wispr-api/* HTTP path (Next rewrites it to
 // the upstream API). The wss:// entry names the host the browser opens raw
-// WebSockets to — Next rewrites can't proxy WS upgrades, so the WS-base
+// WebSockets to (Next rewrites can't proxy WS upgrades), so the WS-base
 // hostname must be listed explicitly. The R2 wildcard lets the browser PUT/GET
 // encrypted file chunks straight to Cloudflare R2 via presigned URLs (the bytes
 // never transit the API).
@@ -72,7 +72,7 @@ const SECURITY_HEADERS = [
 // the production hostname. The same value lives behind
 // NEXT_PUBLIC_API_BASE_URL (set to ``/wispr-api`` in Vercel production)
 // so the browser hits a same-origin URL and the rewrite layer does
-// the cross-origin fetch on the edge — the browser never sees a
+// the cross-origin fetch on the edge, so the browser never sees a
 // cross-origin response.
 const API_REWRITE_TARGET =
   process.env.WISPR_API_REWRITE_TARGET || "https://wispr-api.rushyendra.dev";
@@ -104,7 +104,7 @@ const config: NextConfig = {
     // Proxy /wispr-api/* through the Next edge to the upstream API.
     // The browser sees only same-origin requests; the cross-origin
     // fetch happens on the edge. Note this layer can't proxy WS
-    // upgrades — those still need an absolute wss:// URL on the
+    // upgrades: those still need an absolute wss:// URL on the
     // client (see env.apiWsBaseUrl in lib/env.ts).
     return [
       {

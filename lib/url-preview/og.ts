@@ -5,7 +5,7 @@
 // is acceptable, so we fetch the target site directly and parse its
 // HTML for og:* / twitter:* tags. CORS-restrictive sites (the majority)
 // will reject the request, in which case the receiver simply gets the
-// bare URL card with no preview — that's the right failure mode here.
+// bare URL card with no preview: that's the right failure mode here.
 
 export interface OgPreview {
   hostname: string;
@@ -43,7 +43,7 @@ export async function fetchOgPreview(
     response = await fetch(url.href, init);
   } catch {
     // CORS rejection lands here as a TypeError. Same handling either
-    // way — drop the preview, keep the bare URL.
+    // way: drop the preview, keep the bare URL.
     return null;
   }
   if (!response.ok) return null;
@@ -75,7 +75,7 @@ async function readResponseBodyBounded(response: Response, maxBytes: number): Pr
       chunks.push(value);
       total += value.byteLength;
       if (total >= maxBytes) {
-        // Got enough — cancel the stream so we don't keep downloading
+        // Got enough, so cancel the stream so we don't keep downloading
         // a long page body when the head is already in hand.
         await reader.cancel();
         break;
@@ -93,7 +93,7 @@ async function readResponseBodyBounded(response: Response, maxBytes: number): Pr
   return new TextDecoder("utf-8", { fatal: false }).decode(combined);
 }
 
-/** Exported for tests — pulls OG-style metadata out of raw HTML. */
+/** Exported for tests: pulls OG-style metadata out of raw HTML. */
 export function parseOgFromHtml(url: URL, html: string): OgPreview {
   // DOMParser is available in browsers + jsdom. In the Node test
   // environment we ship a small regex-based parser instead so the

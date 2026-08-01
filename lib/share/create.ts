@@ -91,7 +91,7 @@ function passwordFields(password: PasswordGate | undefined): Record<string, stri
 async function createError(response: Response): Promise<Error> {
   try {
     const body = (await response.json()) as { reason?: unknown; detail?: unknown };
-    // A kill switch paused this share mode — show a plain, reassuring message
+    // A kill switch paused this share mode: show a plain, reassuring message
     // rather than a raw status code.
     if (body.reason === "feature_disabled") {
       return new Error("This is paused right now. Try again later.");
@@ -139,7 +139,7 @@ export async function createLinkShare(
 }
 
 /** Create a PIN share (Mode 2). The raw content key travels to the server,
- *  which wraps it at rest — Mode 2 is encryption-at-rest, not zero-knowledge. */
+ *  which wraps it at rest: Mode 2 is encryption-at-rest, not zero-knowledge. */
 export async function createPinShare(
   contentType: ShareContentType,
   contentBytes: Uint8Array,

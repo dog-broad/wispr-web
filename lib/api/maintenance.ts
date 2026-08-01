@@ -1,5 +1,5 @@
 // Public maintenance-mode state, read to decide whether to show the site-wide
-// banner. Fails closed (no banner) when the API is unreachable — a down API is
+// banner. Fails closed (no banner) when the API is unreachable: a down API is
 // its own signal, and a stale "maintenance" banner would mislead.
 
 import { env } from "@/lib/env";

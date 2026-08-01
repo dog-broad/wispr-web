@@ -1,7 +1,7 @@
 // Offline queue for Sync clips, backed by IndexedDB.
 //
 // A clip is only ever queued *after* it's sealed, so what lands here is
-// already ciphertext + a DEK wrapped by the master KEK — nothing plaintext,
+// already ciphertext + a DEK wrapped by the master KEK: nothing plaintext,
 // no key material. That's why the flush path needs no unlock: it
 // just re-POSTs the stored envelope. The queue persists across reloads and
 // browser restarts, so an offline save survives until it reaches the server.

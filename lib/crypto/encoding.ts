@@ -1,10 +1,10 @@
 // Byte-blob helpers for the Wispr wire format.
 //
 // The URL fragment uses base64url (RFC 4648 §5) with the URL-safe
-// alphabet and stripped padding — short, copy-safe, no special
+// alphabet and stripped padding: short, copy-safe, no special
 // characters that browsers might encode further.
 //
-// On-the-wire ciphertext columns carry an "envelope" — the 12-byte
+// On-the-wire ciphertext columns carry an "envelope": the 12-byte
 // AES-GCM IV concatenated with the ciphertext + AEAD tag. Server stores
 // the blob opaquely; the receiver splits the IV off the front before
 // passing the rest to `crypto.decrypt`.

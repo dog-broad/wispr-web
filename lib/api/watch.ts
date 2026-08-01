@@ -2,7 +2,7 @@
 //
 // The server pushes three event kinds: an initial snapshot, a per-
 // read tick, and a terminal gone event. The client only needs to wire
-// callbacks and call close() when it's done — there's no protocol
+// callbacks and call close() when it's done. There's no protocol
 // message the client must send.
 
 import { env } from "@/lib/env";

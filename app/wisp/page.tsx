@@ -5,7 +5,7 @@ import { PixelCard } from "@/components/pixel/PixelCard";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
 import { WispMascot, type WispState } from "@/components/pixel/WispMascot";
 
-// Internal mascot review page. Not linked from any user-facing route —
+// Internal mascot review page. Not linked from any user-facing route;
 // referenced by URL only during iteration on the Wisp's art. Indexers
 // are explicitly told to skip it.
 export const metadata: Metadata = {

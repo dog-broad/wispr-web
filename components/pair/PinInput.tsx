@@ -15,7 +15,7 @@ export interface PinInputProps {
    *  once per fill transition; clearing a slot and refilling fires it
    *  again. */
   onComplete?: (pin: string) => void;
-  /** Total slots. Defaults to 4 — the only configuration M2 needs. */
+  /** Total slots. Defaults to 4 (the only configuration M2 needs). */
   length?: number;
   /** Disables every slot. Used for the "resolving…" state where the
    *  parent is doing async work and doesn't want further edits. */
@@ -36,19 +36,19 @@ export function PinInput({
 }: PinInputProps) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   // The ref-callback below repopulates ``refs.current`` per render, so
-  // we don't need to pre-size the array — entries beyond ``length``
+  // we don't need to pre-size the array: entries beyond ``length``
   // simply become unreferenced. (Mutating refs during render is a
   // react-hooks/refs error on the Vercel lint pass.)
 
   // Auto-focus the first empty slot when the component mounts. Disabled
-  // overrides this — the resolving state shouldn't steal focus from
+  // overrides this: the resolving state shouldn't steal focus from
   // whatever the parent surfaces next.
   useEffect(() => {
     if (disabled) return;
     const firstEmpty = value.findIndex((v) => v === "");
     const target = firstEmpty === -1 ? length - 1 : firstEmpty;
     refs.current[target]?.focus();
-    // Only on first mount — keystrokes drive focus from then on.
+    // Only on first mount: keystrokes drive focus from then on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

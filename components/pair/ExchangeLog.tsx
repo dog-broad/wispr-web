@@ -306,7 +306,7 @@ function Bubble({
 }
 
 // Anchor http(s) URLs inline; keep everything else as plain text. Bare
-// www-style hosts and other URL flavors aren't auto-linked — the goal
+// www-style hosts and other URL flavors aren't auto-linked: the goal
 // is to recognize the common copy-pasted-URL case without false
 // positives on prose that happens to contain a dot.
 const URL_REGEX = /(https?:\/\/[^\s<>"']+)/g;

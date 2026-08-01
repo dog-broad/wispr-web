@@ -31,7 +31,7 @@ export interface TextFrame {
 export interface FileMetaFrame {
   type: "file_meta";
   /** Sender-issued id linking this meta to its chunks. Not a security
-   *  identifier — just a routing key for the receiver-side reassembler. */
+   *  identifier, just a routing key for the receiver-side reassembler. */
   id: string;
   name: string;
   /** MIME from the sender's File object; trusted (we're ZK so we
@@ -44,7 +44,7 @@ export interface FileChunkFrame {
   type: "file_chunk";
   id: string;
   /** Zero-based chunk index. Data channels are ordered so this is
-   *  monotonic in practice — but the receiver writes by offset so
+   *  monotonic in practice, but the receiver writes by offset so
    *  reordering would still reassemble correctly. */
   index: number;
   /** Standard base64 of the chunk bytes. ~33% inflation, accepted for
@@ -100,8 +100,8 @@ export function decodeChunkData(frame: FileChunkFrame): Uint8Array {
 
 /** Decrypt and parse a wire frame, or return ``null`` if the frame is
  *  malformed, tampered, or doesn't match a known variant. The receiver
- *  silently drops on failure rather than tearing down the channel —
- *  the auth tag check makes accidental delivery of garbage benign. */
+ *  silently drops on failure rather than tearing down the channel. The
+ *  auth tag check makes accidental delivery of garbage benign. */
 export async function decryptFrame(
   sessionKey: CryptoKey,
   bytes: Uint8Array,
@@ -124,7 +124,7 @@ export async function decryptFrame(
     );
     plaintext = new Uint8Array(decoded);
   } catch {
-    // Auth tag mismatch — drop.
+    // Auth tag mismatch: drop.
     return null;
   }
   let parsed: unknown;
@@ -214,7 +214,7 @@ export class EncryptedChannel {
   }
 
   /** Send one chunk of file content. The channel doesn't track per-
-   *  file state — the caller (the sendFile helper in ``usePairExchange``)
+   *  file state. The caller (the sendFile helper in ``usePairExchange``)
    *  walks the file and calls this per chunk in order. */
   async sendFileChunk(id: string, index: number, chunkBytes: Uint8Array): Promise<void> {
     const frame = await encryptFileChunk(this.sessionKey, id, index, chunkBytes);

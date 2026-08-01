@@ -58,7 +58,7 @@ describe("outcomes/copyForFailure", () => {
   });
 
   it("postConnection drops short-circuit to peer_disconnect copy", () => {
-    // Wire reason is the same as 'sender_offline' — what differs is
+    // Wire reason is the same as 'sender_offline'. What differs is
     // whether the session was already up. The post-connection branch
     // should always pick the "peer disconnected mid-session" copy.
     const dropDuringConnect = copyForFailure({
@@ -79,7 +79,7 @@ describe("outcomes/copyForFailure", () => {
       postConnection: false,
     });
     // The fallback exists exactly so the receiver UI never has to
-    // render empty text — verifying that contract here.
+    // render empty text; verifying that contract here.
     expect(out.title).toBeTruthy();
     expect(out.body).toBeTruthy();
   });

@@ -42,7 +42,7 @@ export type PairPhase =
 /** Structured failure carried to ``onFailed`` so the UI can branch on
  *  reason (PROJECT.md §7.6.7) and surface the retry countdown the
  *  server suggests for rate-limit cases. ``postConnection`` is true if
- *  the failure happened after ``onConnected`` already fired — used to
+ *  the failure happened after ``onConnected`` already fired, used to
  *  distinguish §7.6.7 #20 (peer disconnect mid-session) from #9/#10/#11
  *  (couldn't establish at all). */
 export interface PairFailure {
@@ -75,7 +75,7 @@ const NEGOTIATION_TIMEOUT_MS = 15_000;
 
 const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   // Public STUN reflexive-address discovery. TURN relays would extend
-  // reach for restrictive NATs but require credentials — out of scope
+  // reach for restrictive NATs but require credentials; out of scope
   // for v1.
   { urls: "stun:stun.l.google.com:19302" },
 ];
@@ -98,7 +98,7 @@ export class PairSession {
   // Pending retry-after hint from the server's ``pair_failed.retry_after_seconds``.
   // Forwarded into the next ``fail`` call so the UI can render a countdown.
   private pendingRetryAfter: number | undefined;
-  // Negotiation watchdog — cleared when ``connected`` fires or the
+  // Negotiation watchdog: cleared when ``connected`` fires or the
   // session closes; fires ``negotiation_timeout`` if neither happens.
   private negotiationTimer: ReturnType<typeof setTimeout> | null = null;
   // Late-bound handler for inbound application data on the data
@@ -210,7 +210,7 @@ export class PairSession {
 
     this.pc.addEventListener("iceconnectionstatechange", () => {
       const state = this.pc.iceConnectionState;
-      // "failed" is terminal — the browser gave up on ICE. Surface as
+      // "failed" is terminal: the browser gave up on ICE. Surface as
       // §7.6.7 #19 so the UI can suggest a different network.
       if (state === "failed") {
         this.fail("rtc_failed");
@@ -225,7 +225,7 @@ export class PairSession {
     });
 
     this.pc.addEventListener("datachannel", (event) => {
-      // Receiver path — the sender created the channel.
+      // Receiver path: the sender created the channel.
       this.attachDataChannel(event.channel);
     });
 
@@ -333,7 +333,7 @@ export class PairSession {
         return; // peer signalled end-of-candidates
       }
       if (this.pc.remoteDescription === null) {
-        // ICE candidates can arrive before the SDP — buffer and apply
+        // ICE candidates can arrive before the SDP: buffer and apply
         // once the remote description lands.
         this.pendingIce.push(candidate);
         return;
@@ -341,7 +341,7 @@ export class PairSession {
       try {
         await this.pc.addIceCandidate(candidate);
       } catch {
-        /* candidate rejected; not fatal — let ICE recover */
+        /* candidate rejected; not fatal, let ICE recover */
       }
     }
   }
@@ -415,7 +415,7 @@ export class PairSession {
   private fail(reason: string): void {
     if (this.closed) {
       // Closing tears down the signaling socket, which fires
-      // ``onClose`` again — swallow the recursive fail.
+      // ``onClose`` again; swallow the recursive fail.
       return;
     }
     const failure: PairFailure = {

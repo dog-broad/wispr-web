@@ -5,7 +5,7 @@
 // everything else plain.
 //
 // The implementation prioritises predictable behaviour over depth.
-// It is *not* a parser — it's a lex-only scan that recognises three
+// It is *not* a parser: it's a lex-only scan that recognises three
 // token classes by regex. That is enough to make code look like code
 // at small reading sizes, which is the entire goal here. Languages
 // with grammars that don't fit the keyword-string-comment model
@@ -28,7 +28,7 @@ interface LanguageGrammar {
    *  ``y`` (sticky) flag so we can drive them from a single cursor. */
   stringPatterns: readonly RegExp[];
   commentPatterns: readonly RegExp[];
-  /** Characters that begin an identifier — used to gate keyword
+  /** Characters that begin an identifier, used to gate keyword
    *  matching so ``case`` doesn't light up inside ``staircase``. */
   identifierStart?: RegExp;
   identifierContinue?: RegExp;
@@ -294,7 +294,7 @@ const GRAMMARS: Record<Language, LanguageGrammar> = {
 };
 
 /** Break ``text`` into a stream of tokens for ``language``. Output
- *  concatenated produces the original input exactly — the tokenizer
+ *  concatenated produces the original input exactly: the tokenizer
  *  never elides content, only labels it. */
 export function tokenize(language: Language, text: string): Token[] {
   const grammar = GRAMMARS[language];

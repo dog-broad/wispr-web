@@ -12,7 +12,7 @@ describe("pair/crypto", () => {
   it("imported public key produces the same session material as the original", async () => {
     // Peer public keys are imported non-extractable (they can't round-
     // trip back to base64url). The contract that matters is that the
-    // imported key behaves identically to the original — same shared
+    // imported key behaves identically to the original: same shared
     // secret with any third party's private key, so same SAS.
     const alice = await generateEphemeralKeypair();
     const bob = await generateEphemeralKeypair();
@@ -54,7 +54,7 @@ describe("pair/crypto", () => {
 
   it("different keypairs produce different SAS values", async () => {
     // Sample a handful of pairings and require at least two distinct SAS
-    // values — the probability of all 5 colliding randomly on a 20-bit
+    // values. The probability of all 5 colliding randomly on a 20-bit
     // space is ~10⁻²⁰.
     const seen = new Set<string>();
     for (let i = 0; i < 5; i += 1) {
@@ -78,7 +78,7 @@ describe("pair/crypto", () => {
       mallory.publicKey,
     );
     // Bob negotiated with Alice's real key (no MITM on Bob's side in
-    // this simplified scenario — real MITM would also intercept this).
+    // this simplified scenario; real MITM would also intercept this).
     const bobFromAlice = await deriveSessionMaterial(
       bob.privateKey,
       alice.publicKey,

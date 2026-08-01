@@ -4,7 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/cn";
 
 export interface PixelQrProps {
-  /** The data the QR encodes — typically the full receive URL including the
+  /** The data the QR encodes: typically the full receive URL including the
    *  `#k=` fragment so a scanning phone can fetch and decrypt in one step. */
   value: string;
   /** Pixel side length of the rendered QR square. Defaults to 192 (chunky

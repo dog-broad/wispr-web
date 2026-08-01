@@ -1,4 +1,4 @@
-// Pure WebCrypto wrappers — AES-GCM-256, fresh random IV per encrypt call.
+// Pure WebCrypto wrappers: AES-GCM-256, fresh random IV per encrypt call.
 //
 // These functions intentionally take and return raw bytes (Uint8Array) so
 // they're cheap to ship across the worker boundary and trivial to test in
@@ -43,7 +43,7 @@ export async function encrypt(
   const cryptoKey = await importAesKey(key);
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
   // additionalData binds context (e.g. a file chunk's index) into the auth
-  // tag without encrypting it — decrypt fails if the same AAD isn't supplied,
+  // tag without encrypting it: decrypt fails if the same AAD isn't supplied,
   // so a chunk can't be silently reordered or swapped between uploads.
   const params: AesGcmParams = { name: ALGORITHM, iv };
   if (additionalData !== undefined) params.additionalData = additionalData;
@@ -54,7 +54,7 @@ export async function encrypt(
 /**
  * Decrypt `ciphertext` under `key` with the given `iv`. Rejects (with the
  * underlying WebCrypto `OperationError`) when the auth tag fails to
- * verify — i.e. the key is wrong, the ciphertext was tampered with, or
+ * verify, i.e. the key is wrong, the ciphertext was tampered with, or
  * the IV does not match the one used at encrypt time.
  */
 export async function decrypt(

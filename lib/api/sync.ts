@@ -12,7 +12,7 @@ export type ClipContentType = "text" | "code" | "url" | "file";
 export interface SyncItem {
   id: string;
   contentType: ClipContentType;
-  // Empty for a file-backed clip — its bytes live in R2 (chunkCount objects),
+  // Empty for a file-backed clip: its bytes live in R2 (chunkCount objects),
   // fetched on demand via fetchSyncFileUrls.
   ciphertext: Uint8Array;
   wrappedDek: Uint8Array;
