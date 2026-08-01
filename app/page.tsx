@@ -46,9 +46,11 @@ export default function HomePage() {
         <div className="mt-4 flex flex-col items-stretch gap-3 md:flex-row md:items-center md:justify-between">
           <Link
             href="/pair"
-            className="inline-flex items-center gap-2 font-[var(--font-body)] text-[14px] underline-offset-4 hover:underline"
+            className="inline-flex items-center gap-2 font-[var(--font-body)] text-[14px] underline-offset-4 hover:underline hover:decoration-[var(--color-marigold)]"
           >
-            <PixelIcon name="devices" size={16} />
+            <span className="text-[var(--color-marigold)]">
+              <PixelIcon name="devices" size={16} />
+            </span>
             Or pair a device live →
           </Link>
           <Link
@@ -56,12 +58,17 @@ export default function HomePage() {
             className="inline-flex items-center gap-2 font-[var(--font-mono)] text-[16px] underline-offset-4 hover:underline"
           >
             <span className="opacity-60">Got a PIN?</span>
-            <PinSlots />
+            <span className="text-[var(--color-purple)]">
+              <PinSlots />
+            </span>
             <span aria-hidden className="opacity-60">
               or
             </span>
             <span className="inline-flex items-center gap-1 opacity-90">
-              <PixelIcon name="grid" size={16} /> scan
+              <span className="text-[var(--color-purple)]">
+                <PixelIcon name="grid" size={16} />
+              </span>{" "}
+              scan
             </span>
           </Link>
         </div>
