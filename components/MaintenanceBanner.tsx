@@ -20,7 +20,7 @@ export function MaintenanceBanner() {
   }, []);
 
   if (!state?.enabled) return null;
-  const message = state.message?.trim() || "Wispr is under maintenance — some actions may be paused.";
+  const message = state.message?.trim() || "Wispr is under maintenance. Some actions may be paused.";
 
   return (
     <div

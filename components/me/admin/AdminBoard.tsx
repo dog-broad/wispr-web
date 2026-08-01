@@ -231,8 +231,8 @@ export function AdminBoard() {
           {dashboard.status === "ok"
             ? "all systems normal"
             : dashboard.status === "warn"
-              ? "attention — something is approaching a limit"
-              : "alert — a metric is critical"}
+              ? "attention, something is approaching a limit"
+              : "alert, a metric is critical"}
         </span>
         <span className="num opacity-60">
           {new Date(dashboard.generated_at).toLocaleTimeString()}
@@ -417,7 +417,7 @@ function KillSwitchButton({
         {label}
       </span>
       <span className="num uppercase" style={{ color: on ? "var(--color-pink)" : "inherit" }}>
-        {busy ? "…" : on ? "paused — resume" : "pause"}
+        {busy ? "…" : on ? "paused, resume" : "pause"}
       </span>
     </button>
   );

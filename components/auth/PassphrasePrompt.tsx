@@ -54,7 +54,7 @@ export function PassphrasePrompt() {
       await clearKeys();
       setStatus("ready");
       if (err instanceof AuthError && err.status === 423) {
-        setError("Too many attempts — your account is locked for an hour.");
+        setError("Too many attempts. Your account is locked for an hour.");
       } else if (err instanceof AuthError && err.status === 401) {
         setError("That passphrase doesn't match. Try again.");
       } else {

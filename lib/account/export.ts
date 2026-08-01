@@ -136,7 +136,7 @@ function esc(s) {
 
 const syncCount = BUNDLE.sync.length, pinCount = BUNDLE.pins.length;
 document.getElementById("summary").textContent =
-  "Exported " + BUNDLE.exported_at + " — " + syncCount + " synced, " + pinCount + " PIN-share" +
+  "Exported " + BUNDLE.exported_at + ", " + syncCount + " synced, " + pinCount + " PIN-share" +
   (BUNDLE.master_key_salt ? "" : " (no passphrase set on this account)");
 
 async function decryptItem(item, kind, kek) {
@@ -171,7 +171,7 @@ function renderClip(item, kind, res) {
     esc(item.created_at) + name + '</div>';
   const pre = document.createElement("pre");
   if (res.body.stored) {
-    pre.textContent = "[file content is stored remotely and not included in this export — " +
+    pre.textContent = "[file content is stored remotely and not included in this export; " +
       "re-download it from Wispr while the service is running]";
   } else if (ct === "text" || ct === "code" || ct === "url") {
     pre.textContent = new TextDecoder().decode(res.body.bytes);

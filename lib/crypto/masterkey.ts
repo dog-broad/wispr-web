@@ -106,14 +106,14 @@ export async function deriveNext(
 
 function requireKek(): CryptoKey {
   if (masterKek === null) {
-    throw new Error("master key not derived — passphrase required");
+    throw new Error("master key not derived, passphrase required");
   }
   return masterKek;
 }
 
 function requireNext(): CryptoKey {
   if (nextKek === null) {
-    throw new Error("next key not derived — begin a passphrase change first");
+    throw new Error("next key not derived, begin a passphrase change first");
   }
   return nextKek;
 }

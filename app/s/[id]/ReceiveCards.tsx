@@ -398,10 +398,10 @@ function UrlPreviewBlock({
         {state.kind === "loading"
           ? "fetching preview…"
           : state.kind === "unavailable"
-            ? "no preview — site didn't allow a direct fetch."
+            ? "no preview, site didn't allow a direct fetch."
             : ready?.title || ready?.description || ready?.image
               ? null
-              : "no preview — site didn't expose Open Graph metadata."}
+              : "no preview, site didn't expose Open Graph metadata."}
       </p>
     </div>
   );
@@ -512,7 +512,7 @@ export function WrongKeyCard() {
       mascot="error"
       badge="couldn’t decrypt"
       heading="That key didn’t fit."
-      subhead="The key in this URL doesn’t match the ciphertext. The link may have been altered in transit — ask the sender to share it again."
+      subhead="The key in this URL doesn’t match the ciphertext. The link may have been altered in transit. Ask the sender to share it again."
     />
   );
 }
@@ -604,7 +604,7 @@ export function MalformedCard() {
       mascot="error"
       badge="unexpected response"
       heading="Something’s off on the server side."
-      subhead="The API responded with a shape we don’t recognise. This is a Wispr bug, not yours — please tell the operator."
+      subhead="The API responded with a shape we don’t recognise. This is a Wispr bug, not yours. Please tell the operator."
     />
   );
 }

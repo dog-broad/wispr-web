@@ -251,7 +251,7 @@ function DeleteAccountSection({ authSalt }: { authSalt: Uint8Array }) {
 function deleteErrorMessage(err: unknown): string {
   if (err instanceof AccountError) {
     if (err.status === 401) return "That passphrase doesn't match.";
-    if (err.status === 423) return "Too many attempts — locked for an hour.";
+    if (err.status === 423) return "Too many attempts. Locked for an hour.";
   }
   return "Couldn't delete your account. Try again.";
 }
@@ -335,7 +335,7 @@ function ChangeEmailSection({ authSalt }: { authSalt: Uint8Array }) {
 function emailErrorMessage(err: unknown): string {
   if (err instanceof AccountError) {
     if (err.status === 401) return "That passphrase doesn't match.";
-    if (err.status === 423) return "Too many attempts — locked for an hour.";
+    if (err.status === 423) return "Too many attempts. Locked for an hour.";
     if (err.status === 409) return "That email is already in use.";
     if (err.status === 400) return "That's already your email.";
   }
@@ -427,8 +427,8 @@ function ChangePassphraseSection() {
 function changeErrorMessage(err: unknown): string {
   if (err instanceof AuthError) {
     if (err.status === 401) return "That current passphrase doesn't match.";
-    if (err.status === 423) return "Too many attempts — locked for an hour.";
-    if (err.status === 409) return "A clip changed mid-update — try again.";
+    if (err.status === 423) return "Too many attempts. Locked for an hour.";
+    if (err.status === 409) return "A clip changed mid-update. Try again.";
   }
   return "Couldn't change your passphrase. Try again.";
 }

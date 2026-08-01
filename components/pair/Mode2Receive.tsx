@@ -252,7 +252,7 @@ function renderView(
           <h2 className="text-[22px] leading-tight font-[var(--font-display)]">quick check</h2>
           <p className="mt-3 text-[16px] font-[var(--font-body)] opacity-90">
             {view.failed
-              ? "Couldn't verify you're human — try again."
+              ? "Couldn't verify you're human. Try again."
               : "Too many attempts from here. Confirm you're human to continue."}
           </p>
           <Turnstile onToken={onToken} />

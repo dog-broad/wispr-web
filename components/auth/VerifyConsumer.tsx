@@ -93,7 +93,7 @@ export function VerifyConsumer() {
         <WispMascot state="success" size={2} />
         <div>
           <h2 className="text-[22px] leading-tight font-[var(--font-display)]">
-            {state.result.needsPassphraseSetup ? "you're in — one more step" : "welcome back"}
+            {state.result.needsPassphraseSetup ? "you're in, one more step" : "welcome back"}
           </h2>
           <p className="mt-3 text-[16px] font-[var(--font-body)] opacity-90">
             Signed in as <span className="num break-all">{state.result.email}</span>.

@@ -444,7 +444,7 @@ Encrypted in your browser before it leaves."
                   icon={<PixelIcon name="link" size={12} />}
                   label="url"
                   value={detectedUrl.hostname}
-                  title="URL detected — receiver will see a link preview"
+                  title="URL detected, receiver will see a link preview"
                 />
               )}
               {detectedLanguage !== null && (
@@ -452,7 +452,7 @@ Encrypted in your browser before it leaves."
                   icon={<PixelIcon name="code" size={12} />}
                   label="code"
                   value={detectedLanguage}
-                  title="Code detected — receiver will see syntax highlighting"
+                  title="Code detected, receiver will see syntax highlighting"
                 />
               )}
               <input

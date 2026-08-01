@@ -301,11 +301,11 @@ function Action({ issue, onNewPin }: { issue: IssueState; onNewPin: () => void }
 function Helper({ issue, session }: { issue: IssueState; session: SessionState }) {
   let body: string;
   if (session.kind === "connected") {
-    body = "Channel is live — content runs peer-to-peer from here.";
+    body = "Channel is live. Content runs peer-to-peer from here.";
   } else if (session.kind === "connecting" && session.phase === "negotiating") {
     body = "Other device joined. Bringing up the encrypted channel…";
   } else if (issue.kind === "expired") {
-    body = "PINs are short-lived on purpose — they only live until someone joins.";
+    body = "PINs are short-lived on purpose. They only live until someone joins.";
   } else {
     body =
       "On the other device, open Wispr and enter this PIN. Pair stays peer-to-peer; nothing is saved.";

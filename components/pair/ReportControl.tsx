@@ -136,7 +136,7 @@ export function ReportControl({ snippetId }: { snippetId: string }) {
         <div>
           <p className="font-[var(--font-body)] text-[14px] opacity-90">
             {status.failed
-              ? "Couldn't verify you're human — try again."
+              ? "Couldn't verify you're human. Try again."
               : "Confirm you're human to send this report."}
           </p>
           <Turnstile onToken={onToken} />
