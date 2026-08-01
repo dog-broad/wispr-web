@@ -1,20 +1,20 @@
 # wispr-web
 
-Next.js 15 + TypeScript + Tailwind frontend for [Wispr](https://wispr.rushyendra.dev) — a web-only zero-knowledge clipboard.
+Next.js 15 + TypeScript + Tailwind frontend for [Wispr](https://wispr.rushyendra.dev), a web-only zero-knowledge clipboard.
 
 <p align="center">
-  <img src="docs/home-light.png" alt="Wispr home — compose an encrypted, self-destructing share" width="860">
+  <img src="docs/home-light.png" alt="Wispr home page with the composer open" width="860">
 </p>
 
 <p align="center">
-  <img src="docs/home-dark.png" alt="Dark mode" width="270">&nbsp;
-  <img src="docs/sent.png" alt="Share created — copy the link or scan the QR; burns after one read" width="270">&nbsp;
-  <img src="docs/receive.png" alt="Recipient decrypts in the browser, then it self-destructs" width="270">
+  <img src="docs/home-dark.png" alt="The home page in dark mode" width="270">&nbsp;
+  <img src="docs/sent.png" alt="A created share with its link and QR code, set to burn after one read" width="270">&nbsp;
+  <img src="docs/receive.png" alt="A recipient decrypting a share in the browser before it self-destructs" width="270">
 </p>
 
 **Backend counterpart:** [`dog-broad/wispr-api`](https://github.com/dog-broad/wispr-api) (FastAPI + Postgres + Redis).
 
-This repo is structured for eventual open-sourcing — the client crypto is meant to be readable and auditable.
+This repo is structured for eventual open-sourcing. The client crypto is meant to be readable and auditable.
 
 ## Quickstart
 
@@ -30,13 +30,13 @@ By default the app calls the api at `http://localhost:8000`. Override via `NEXT_
 
 ### Run the whole stack locally
 
-Two terminals — one per repo. The api side handles CORS for `http://localhost:3000` out of the box:
+Two terminals, one per repo. The api side handles CORS for `http://localhost:3000` out of the box:
 
 ```bash
-# terminal 1 — sibling wispr-api repo
+# terminal 1 (sibling wispr-api repo)
 cd ../wispr-api && docker compose up -d --build
 
-# terminal 2 — this repo
+# terminal 2 (this repo)
 pnpm dev
 ```
 
@@ -56,12 +56,12 @@ pnpm format       # prettier --write
 
 | Path           | Purpose                                                                       | Indexable |
 |----------------|-------------------------------------------------------------------------------|-----------|
-| `/`            | Home — composer with the four-mode strip                                      | yes       |
+| `/`            | Home composer with the four-mode strip                                        | yes       |
 | `/about`       | Plain-English explanation of how Wispr works + the security model             | yes       |
-| `/s/[id]`      | Receive a Link share — SSR shell + client-side decrypt                        | no        |
-| `/robots.txt`  | Allow `/` and `/about`; disallow receive routes                               | —         |
-| `/sitemap.xml` | Marketing pages only                                                          | —         |
-| `/opengraph-image` | 1200×630 OG card for social previews                                      | —         |
+| `/s/[id]`      | Receive a Link share (SSR shell, client-side decrypt)                         | no        |
+| `/robots.txt`  | Allow `/` and `/about`; disallow receive routes                               | n/a       |
+| `/sitemap.xml` | Marketing pages only                                                          | n/a       |
+| `/opengraph-image` | 1200×630 OG card for social previews                                      | n/a       |
 
 ## Stack
 
@@ -91,7 +91,7 @@ The full rule set is encoded directly in the design tokens (`app/globals.css` un
 
 ```
 app/
-├── layout.tsx        Root layout — fonts, theme bootstrap, atmosphere layers
+├── layout.tsx        Root layout: fonts, theme bootstrap, atmosphere layers
 ├── page.tsx          /   (home with composer)
 ├── about/page.tsx    /about
 ├── s/[id]/           /s/[id] receive route (server shell + client decrypt)
@@ -101,14 +101,14 @@ app/
 └── sitemap.ts        Marketing-only
 
 components/
-├── pixel/            Pixel design primitives — buttons, cards, inputs,
+├── pixel/            Pixel design primitives: buttons, cards, inputs,
 │                     badges, pills, logo, mascot, QR, theme toggle,
 │                     atmosphere
 └── composer/         Composer (state machine) + SentState (QR + countdown)
 
 lib/
 ├── cn.ts             Tiny className joiner
-├── env.ts            Typed env loader — single read site for process.env
+├── env.ts            Typed env loader, the single read site for process.env
 └── crypto/           WebCrypto in a Web Worker: primitives, types,
                       worker entry, client wrapper, base64url + envelope
                       helpers
