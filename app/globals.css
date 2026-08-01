@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+/* Digits-only VT323 face, layered ahead of Pixelify Sans in --font-body so
+   every 0-9 renders in VT323 automatically — in prose, placeholders, labels,
+   everywhere — with no per-span `.num` wrapping. (Pixelify's own 2 and 5 read
+   poorly.) Letters fall through to Pixelify because this face only claims the
+   digit code points. Self-hosted to satisfy the `font-src 'self'` CSP. */
+@font-face {
+  font-family: "VT323 Digits";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/vt323-latin.woff2") format("woff2");
+  unicode-range: U+0030-0039;
+}
+
 /* -------------------------------------------------------------- */
 /* Design tokens — indie pixel warmth palette, pixel-grid geometry */
 /* -------------------------------------------------------------- */
@@ -28,7 +42,7 @@
 
   /* Fonts (configured via next/font, exposed as CSS variables in layout.tsx) */
   --font-display: var(--font-silkscreen), monospace;
-  --font-body: var(--font-pixelify), system-ui, monospace;
+  --font-body: "VT323 Digits", var(--font-pixelify), system-ui, monospace;
   --font-mono: var(--font-vt323), monospace;
 
   /* Pixel-grid radii */
@@ -86,6 +100,15 @@ body {
   color: var(--fg);
   min-height: 100vh;
   overflow-x: hidden;
+}
+
+/* Native <select> option popups don't reliably follow `color-scheme` when the
+   select is an opacity-0 overlay (see PixelSelectPill), so the dark-theme popup
+   rendered light-on-white. Paint the options with theme tokens explicitly. */
+select,
+option {
+  background-color: var(--bg-lifted);
+  color: var(--fg);
 }
 
 /* Pixel-perfect rendering for every visual surface */
