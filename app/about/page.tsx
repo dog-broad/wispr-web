@@ -38,7 +38,7 @@ export default function AboutPage() {
           </h1>
           <p className="mt-4 w-full font-[var(--font-body)] text-[16px] opacity-90 md:max-w-[58ch] md:text-[18px]">
             Wispr moves text, code, and files between your devices and to other
-            people — encrypted in your browser before it leaves. The server only
+            people, encrypted in your browser before it leaves. The server only
             sees ciphertext for Link, Pair, and My clips. PIN is the one
             explicit non-ZK mode, and it&rsquo;s gated to members.
           </p>
@@ -63,19 +63,19 @@ export default function AboutPage() {
             <ul className="space-y-3 font-[var(--font-body)] text-[16px]">
               <li className="flex items-start gap-3">
                 <span className="mt-0.5 text-[var(--color-pink)]"><PixelIcon name="link" size={18} /></span>
-                <span><strong>Link</strong> — one-shot URL, burned after a read. Anyone can make one.</span>
+                <span><strong>Link</strong>: one-shot URL, burned after a read. Anyone can make one.</span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="mt-0.5 text-[var(--color-purple)]"><PixelIcon name="lock" size={18} /></span>
-                <span><strong>PIN</strong> — 4 digits. Members only. Convenient. Not zero-knowledge.</span>
+                <span><strong>PIN</strong>: 4 digits. Members only. Convenient. Not zero-knowledge.</span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="mt-0.5 text-[var(--color-marigold)]"><PixelIcon name="devices" size={18} /></span>
-                <span><strong>Pair</strong> — two devices, live, peer-to-peer. Nothing persisted.</span>
+                <span><strong>Pair</strong>: two devices, live, peer-to-peer. Nothing persisted.</span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="mt-0.5 text-[var(--color-moss)]"><PixelIcon name="save" size={18} /></span>
-                <span><strong>My clips</strong> — your own history. Members only. Zero-knowledge.</span>
+                <span><strong>My clips</strong>: your own history. Members only. Zero-knowledge.</span>
               </li>
             </ul>
           </PixelCard>

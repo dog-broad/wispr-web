@@ -41,7 +41,7 @@ export default function HomePage() {
         {/* Composer */}
         <Composer />
 
-        {/* Pair affordance — link "Or pair a device live" to /pair
+        {/* Pair affordance: link "Or pair a device live" to /pair
             (sender) and the "Got a PIN?" row to /r (receiver). */}
         <div className="mt-4 flex flex-col items-stretch gap-3 md:flex-row md:items-center md:justify-between">
           <Link
@@ -118,7 +118,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Decorative illustration row, marquee on md+ — bespoke pixel
+        {/* Decorative illustration row, marquee on md+, bespoke pixel
             glyphs, not the shared icon set. */}
         <section
           aria-hidden
@@ -331,7 +331,7 @@ function ModeCard({
   );
 }
 
-// Decorative scatter — only renders on md+, sits behind hero text. Uses
+// Decorative scatter, only renders on md+, sits behind hero text. Uses
 // PixelIcon for the recognizable pictograms and one bespoke star for the
 // brand accent.
 function DecorScatter() {
