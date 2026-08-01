@@ -85,7 +85,7 @@ export function ReportControl({ snippetId }: { snippetId: string }) {
     return (
       <p className="inline-flex items-center gap-2 font-[var(--font-body)] text-[14px] text-[var(--color-moss)]">
         <PixelIcon name="check" size={14} />
-        Thanks — reported. The operator will take a look.
+        Thanks, reported. The operator will take a look.
       </p>
     );
   }

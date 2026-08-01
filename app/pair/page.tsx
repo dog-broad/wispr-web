@@ -30,7 +30,7 @@ export default function PairPage() {
           </h1>
           <p className="mt-4 w-full font-[var(--font-body)] text-[16px] opacity-90 md:max-w-[58ch] md:text-[18px]">
             Share the PIN on the other side. They&apos;ll join in seconds and
-            the two of you will be connected directly — Wispr stays out of the
+            the two of you will be connected directly, Wispr stays out of the
             payload.
           </p>
         </section>

@@ -29,7 +29,7 @@ export function ConnectBanner({ state }: { state: ConnectBannerState }) {
   if (state.kind === "connected") {
     return (
       <Banner color="moss" title={<span>Connected</span>}>
-        <span className="opacity-70">— code</span>{" "}
+        <span className="opacity-70">· code</span>{" "}
         <span
           className="num font-[var(--font-mono)] text-[20px] tracking-widest"
           aria-label={`Security code ${state.sas.split("").join(" ")}`}

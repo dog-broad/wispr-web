@@ -300,7 +300,7 @@ export function Composer() {
   function acceptFile(file: File) {
     setAttachError(null);
     if (file.size > MAX_FILE_BYTES) {
-      setAttachError(`file too large — max ${formatBytes(MAX_FILE_BYTES)}.`);
+      setAttachError(`file too large, max ${formatBytes(MAX_FILE_BYTES)}.`);
       return;
     }
     setAttachedFile(file);
@@ -374,7 +374,7 @@ export function Composer() {
                 onChange={(event) => setText(event.target.value)}
                 onKeyDown={onKeyDown}
                 placeholder="Type, paste, or drop anything.
-text — code — urls — files (up to 25 MB)
+text · code · urls · files (up to 25 MB)
 Encrypted in your browser before it leaves."
                 rows={6}
                 aria-label="Content to send"
@@ -573,7 +573,7 @@ Encrypted in your browser before it leaves."
                     <Link href="/login" className="underline">
                       Sign in
                     </Link>{" "}
-                    to share by PIN — easier for groups.
+                    to share by PIN, easier for groups.
                   </span>
                 )}
               </p>
@@ -683,7 +683,7 @@ function PasswordRow({
         aria-label="Snippet password"
       />
       <p className="text-[12px] font-[var(--font-body)] opacity-70">
-        Access-control only — the URL key still decrypts the content. Use a secret phrase you can
+        Access-control only. The URL key still decrypts the content. Use a secret phrase you can
         share out-of-band.
       </p>
     </div>

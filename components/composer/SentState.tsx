@@ -168,7 +168,7 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
               deleted
             </PixelBadge>
             <p className="font-[var(--font-body)] text-[16px]">
-              This share is gone — the PIN no longer resolves.
+              This share is gone. The PIN no longer resolves.
             </p>
             <PixelButton variant="primary" size="md" onClick={onSendAnother}>
               Send another
@@ -202,7 +202,7 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
               </span>
             ) : (
               <span className="font-[var(--font-body)] text-[14px] opacity-70">
-                Copy this URL — it&rsquo;s not stored anywhere.
+                Copy this URL, it&rsquo;s not stored anywhere.
               </span>
             )}
           </div>
@@ -216,7 +216,7 @@ export function SentState({ details, onSendAnother }: SentStateProps) {
                 {pin}
               </span>
               <span className="font-[var(--font-body)] text-[14px] opacity-70">
-                They enter it at <span className="num">/r</span> — or scan below.
+                They enter it at <span className="num">/r</span>, or scan below.
               </span>
             </div>
           )}

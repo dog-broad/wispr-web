@@ -378,7 +378,7 @@ function ChangePassphraseSection() {
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-3">
           <p className="text-[14px] font-[var(--font-body)] opacity-80">
-            Re-encrypts every saved clip in your browser. There&apos;s no recovery — a forgotten
+            Re-encrypts every saved clip in your browser. There&apos;s no recovery. A forgotten
             passphrase means lost clips.
           </p>
           <PixelInput
@@ -468,7 +468,7 @@ function ExportSection() {
       <div className="flex flex-col gap-3">
         <p className="text-[14px] font-[var(--font-body)] opacity-80">
           Download all your clips as a single web page that decrypts them right in your browser,
-          offline. Keep it somewhere safe — anyone with the file and your passphrase can read your
+          offline. Keep it somewhere safe. Anyone with the file and your passphrase can read your
           synced clips.
         </p>
         {state.kind === "done" && (

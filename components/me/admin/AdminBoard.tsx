@@ -47,7 +47,7 @@ function MetricRow({ metric }: { metric: Metric }) {
       <StatusDot status={metric.status} />
       <span className="w-40 shrink-0 opacity-80">{metric.label}</span>
       <span className="num flex-1 break-all">
-        {metric.value ?? <span className="opacity-50">— no data —</span>}
+        {metric.value ?? <span className="opacity-50">no data</span>}
       </span>
     </div>
   );

@@ -144,13 +144,13 @@ export default function WispPreviewPage() {
           <PixelCard variant="default" className="mt-4">
             <ul className="grid grid-cols-1 gap-2 p-4 font-[var(--font-body)] text-[14px] sm:grid-cols-2">
               <li><strong>Canvas:</strong> 32×32 viewBox, scale 8 = one grid square per pixel.</li>
-              <li><strong>Silhouette:</strong> oval sheet-ghost — narrow 6-wide top cap, dome widens 6 → 24 (rows 1–7), body bulges to 26 through the belly (rows 9–17), un-bulges to 24, then tapers 22 → 20 before the scallops. The widest point is the belly, not the head.</li>
+              <li><strong>Silhouette:</strong> oval sheet-ghost: narrow 6-wide top cap, dome widens 6 → 24 (rows 1–7), body bulges to 26 through the belly (rows 9–17), un-bulges to 24, then tapers 22 → 20 before the scallops. The widest point is the belly, not the head.</li>
               <li><strong>Eyes (idle):</strong> 5×5 navy irises at (7,8) and (20,8) with a single 2×2 white sparkle upper-left. Sparkles drift on a 5 s loop.</li>
               <li><strong>Eye expressions:</strong> X eyes on error, pink hearts on success, ^_^ closed curves on wave, narrow horizontal slits on sleeping.</li>
               <li><strong>Blush:</strong> 2×2 pink ovals at (4,11) and (26,11) with a brighter centre pixel.</li>
               <li><strong>Mouth:</strong> rows 14–16, state-dependent (w-smile default, open o for error, tiered for sleep, wide grin for wave).</li>
-              <li><strong>Skirt:</strong> three 4-wide cream humps at row 23 with navy valley fills between them and flat caps at row 24 — humps protrude 1 px past the valley line.</li>
-              <li><strong>Accessory zone:</strong> cols 0–31, rows 0–22 — envelope streams marigold trail, link rocks, pin pips cycle, pair arcs ripple, wave sparkle motes twinkle in turn.</li>
+              <li><strong>Skirt:</strong> three 4-wide cream humps at row 23 with navy valley fills between them and flat caps at row 24; humps protrude 1 px past the valley line.</li>
+              <li><strong>Accessory zone:</strong> cols 0–31, rows 0–22: envelope streams marigold trail, link rocks, pin pips cycle, pair arcs ripple, wave sparkle motes twinkle in turn.</li>
               <li><strong>Blink:</strong> 4 s loop, 3 frames (open → half-lid → closed → half-lid → open).</li>
             </ul>
           </PixelCard>

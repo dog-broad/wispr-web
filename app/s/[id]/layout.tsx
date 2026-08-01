@@ -6,7 +6,7 @@ export const metadata: Metadata = {
     "A Wispr share. The content is encrypted in your browser; the key lives in the URL fragment, never on our server.",
   robots: { index: false, follow: false },
   openGraph: {
-    title: "Sent to you — Wispr",
+    title: "Sent to you · Wispr",
     description: "An encrypted clipboard share. Open the URL to decrypt.",
   },
 };

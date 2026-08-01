@@ -279,7 +279,7 @@ function ScanQrAffordance() {
         scan a QR with your phone camera
       </p>
       <p className="text-center font-[var(--font-body)] text-[12px] opacity-70">
-        most phones decode it from the viewfinder — no special app.
+        most phones decode it from the viewfinder, no special app.
       </p>
     </div>
   );

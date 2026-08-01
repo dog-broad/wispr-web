@@ -64,7 +64,7 @@ export function PassphraseSetup() {
 
       <p className="mb-5 border-[2px] border-[var(--color-marigold)] bg-[color-mix(in_srgb,var(--color-marigold)_18%,transparent)] px-3 py-2 font-[var(--font-body)] text-[14px]">
         There is <strong>no recovery</strong>. We never see your passphrase or your
-        keys — if you forget it, your saved clips are gone for good.
+        keys. If you forget it, your saved clips are gone for good.
       </p>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4">

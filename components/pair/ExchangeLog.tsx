@@ -96,7 +96,7 @@ export function ExchangeLog({
     if (!file) return;
     setAttachError(null);
     if (file.size > MAX_INLINE_FILE_BYTES) {
-      setAttachError(`file too large — max ${formatBytes(MAX_INLINE_FILE_BYTES)} this milestone.`);
+      setAttachError(`file too large, max ${formatBytes(MAX_INLINE_FILE_BYTES)} this milestone.`);
       return;
     }
     try {
@@ -117,7 +117,7 @@ export function ExchangeLog({
       >
         {messages.length === 0 ? (
           <p className="py-6 text-center text-[14px] font-[var(--font-body)] opacity-50">
-            Nothing yet — say hello.
+            Nothing yet, say hello.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">

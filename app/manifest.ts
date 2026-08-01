@@ -5,7 +5,7 @@ import type { MetadataRoute } from "next";
 // the apple-icon route covers iOS. theme/background match the cream+navy shell.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Wispr — encrypted clipboard",
+    name: "Wispr · encrypted clipboard",
     short_name: "Wispr",
     description: "A web-only zero-knowledge clipboard for text, code, and files.",
     start_url: "/",

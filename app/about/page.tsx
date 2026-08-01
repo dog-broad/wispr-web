@@ -7,20 +7,20 @@ import { WispMascot } from "@/components/pixel/WispMascot";
 import { PixelIcon } from "@/components/pixel/PixelIcon";
 
 export const metadata: Metadata = {
-  // The root layout's title template appends " — Wispr"; declare just
+  // The root layout's title template appends " · Wispr"; declare just
   // the section here so it doesn't double up.
   title: "About",
   description:
     "How Wispr works, the four modes, the security model. Plain language, no jargon.",
   alternates: { canonical: "/about" },
   openGraph: {
-    title: "About — Wispr",
+    title: "About · Wispr",
     description:
       "How Wispr works, the four modes (Link, PIN, Pair, My clips), and the security model in plain language.",
     url: "https://wispr.rushyendra.dev/about",
   },
   twitter: {
-    title: "About — Wispr",
+    title: "About · Wispr",
     description: "How Wispr works, in plain language.",
   },
 };

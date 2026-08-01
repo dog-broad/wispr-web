@@ -11,7 +11,7 @@ import { ImageResponse } from "next/og";
 // path-resolution bug present in the Node entry of certain versions.
 export const runtime = "edge";
 
-export const alt = "Wispr — encrypted clipboard for sending text, code, and files";
+export const alt = "Wispr · encrypted clipboard for sending text, code, and files";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
