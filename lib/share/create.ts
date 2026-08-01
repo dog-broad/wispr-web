@@ -97,7 +97,7 @@ async function createError(response: Response): Promise<Error> {
       return new Error("This is paused right now. Try again later.");
     }
     if (typeof body.detail === "string") {
-      return new Error(`${response.status} ${response.statusText} — ${body.detail}`);
+      return new Error(`${response.status} ${response.statusText}: ${body.detail}`);
     }
   } catch {
     // fall through to the bare status

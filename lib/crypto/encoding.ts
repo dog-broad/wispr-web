@@ -54,7 +54,7 @@ export function unpackEnvelope(envelope: Uint8Array): {
 } {
   if (envelope.byteLength <= IV_BYTES) {
     throw new Error(
-      `unpackEnvelope: envelope too short — need > ${IV_BYTES} bytes, got ${envelope.byteLength}`,
+      `unpackEnvelope: envelope too short, need > ${IV_BYTES} bytes, got ${envelope.byteLength}`,
     );
   }
   return {
