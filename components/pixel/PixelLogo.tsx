@@ -41,16 +41,17 @@ export function PixelLogo({ className, size = "md" }: PixelLogoProps) {
 }
 
 function SparkDot() {
-  // Sits centered over the "i", where its tittle would be. Positioned against
-  // the "i" wrapper (which is glyph-width), so `left-1/2 -translate-x-1/2`
-  // lands dead-center on the letter at any size or layout context.
+  // Sits *on* the "i" tittle — the marigold spark replaces the letter's dot
+  // rather than floating above it. Anchored to the "i" wrapper (glyph-width),
+  // so `left-1/2 -translate-x-1/2` centres it and `top` seats it over the dot
+  // at any size. Sized to cover the font's own tittle so it reads as one mark.
   return (
     <svg
       aria-hidden
       viewBox="0 0 5 5"
       shapeRendering="crispEdges"
-      className="pixel absolute left-1/2 h-[0.28em] w-[0.28em] -translate-x-1/2"
-      style={{ top: "-0.22em" }}
+      className="pixel absolute left-1/2 h-[0.3em] w-[0.3em] -translate-x-1/2"
+      style={{ top: "0.02em" }}
     >
       <g fill="var(--color-marigold)">
         <rect x="2" y="0" width="1" height="5" />
