@@ -18,8 +18,8 @@ export interface PinShareData {
   downloadUrls?: string[];
 }
 
-// Every distinct /r outcome (§7.6.7 #1–7, plus pair + Turnstile) as a tagged
-// union so the receiver renders each with dedicated copy: no generic fall.
+// Every distinct /r outcome — the resolve cases plus pair + Turnstile — as a
+// tagged union so the receiver renders each with dedicated copy: no generic fall.
 export type ByPinResult =
   | { kind: "pin_share"; data: PinShareData }
   | { kind: "pair" }

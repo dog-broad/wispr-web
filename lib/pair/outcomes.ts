@@ -1,7 +1,6 @@
-// Map every reachable wire failure reason to the user-facing copy from
-// PROJECT.md §7.6.7. The spec's contract is "no generic-error
-// fallthrough": every branch the receiver can land on has its own
-// titled paragraph.
+// Map every reachable wire failure reason to its user-facing copy. The
+// contract is "no generic-error fallthrough": every branch the receiver
+// can land on has its own titled paragraph.
 //
 // Reasons fall in two groups:
 //
@@ -14,9 +13,8 @@
 //     signaling_closed, signaling_error, peer_disconnected, rtc_failed,
 //     negotiation_timeout.
 //
-// Mode 2 outcomes (§7.6.7 #1–#7) ship with PIN-share in the next
-// milestone and aren't reachable from the current code; they're not
-// included here.
+// Mode 2 outcomes ship with PIN-share in the next milestone and aren't
+// reachable from the current code; they're not included here.
 
 import type { PairFailure } from "./session";
 
@@ -54,40 +52,40 @@ export function copyForFailure(failure: PairFailure): OutcomeCopy {
 // raw strings from PairFailReason / synthesised reasons so a wire-level
 // trace points straight at the right copy.
 const SERVER_REASONS: Record<string, OutcomeCopy> = {
-  // §7.6.7 #9 — server has the pair record but no sender WS attached.
+  // Server has the pair record but no sender WS attached.
   sender_offline: {
     title: "The other side went offline.",
     body: "Ask them to start a new pair.",
     action: "start over",
   },
-  // §7.6.7 #10 — single-use PIN already claimed.
+  // Single-use PIN already claimed.
   already_redeemed: {
     title: "This pair was already claimed.",
     body: "Ask the sender for a new PIN.",
     action: "start over",
   },
-  // §7.6.7 #11 / #12 collapse on the server (Redis TTL of 60s makes
-  // expired and never-existed indistinguishable). The copy nods at
-  // both possibilities so the user has the right next-step regardless.
+  // Expired and never-existed collapse on the server (Redis TTL of 60s
+  // makes them indistinguishable). The copy nods at both possibilities
+  // so the user has the right next-step regardless.
   unknown_pin: {
     title: "No share with this PIN.",
     body: "It may have expired (PINs only live ~60s) or never existed.",
     action: "try again",
   },
-  // §7.6.7 #13 — five attempts in the last minute.
+  // Five attempts in the last minute.
   rate_limited_minute: {
     title: "Too many tries.",
     body: "Wait a few seconds before trying again.",
     countdown: true,
   },
-  // §7.6.7 #14 — thirty attempts in the last hour.
+  // Thirty attempts in the last hour.
   rate_limited_hour: {
     title: "Too many tries today.",
     body: "Take a longer break before trying again.",
     countdown: true,
   },
-  // §7.6.7 #17 — connection to the relay dropped before the pair was
-  // established. Lump the WebSocket-level error cases here; the user
+  // Connection to the relay dropped before the pair was established.
+  // Lump the WebSocket-level error cases here; the user
   // doesn't need to distinguish "the server hung up" from "the
   // transport errored". The action is the same.
   signaling_closed: {
@@ -100,7 +98,7 @@ const SERVER_REASONS: Record<string, OutcomeCopy> = {
     body: "Check your connection and try again.",
     action: "retry",
   },
-  // §7.6.7 #19 — ICE failed, no relay reachable, restrictive NAT, etc.
+  // ICE failed, no relay reachable, restrictive NAT, etc.
   rtc_failed: {
     title: "Couldn't establish a direct connection.",
     body:
@@ -131,7 +129,7 @@ const SERVER_REASONS: Record<string, OutcomeCopy> = {
   premature_signal: { ...PROTOCOL_ERROR_COPY("premature_signal") },
 };
 
-// Last-line copy for reasons that aren't in the table. The §7.6.7
+// Last-line copy for reasons that aren't in the table. The
 // "no generic-error fallthrough" rule still applies. This exists to
 // catch additions that haven't been wired into the table yet, with
 // language that nudges the operator to file a real outcome. It should

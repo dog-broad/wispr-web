@@ -2,7 +2,7 @@
 // WebRTC data-channel handshake into a single ``PairSession`` object
 // that page components drive with a few callbacks.
 //
-// The state machine, per [D-260524-01] / [D-0024-01]:
+// The state machine:
 //
 //   1. Open ``/ws/pair`` (sender carries the token in the query; receiver
 //      sends ``redeem`` as its first frame).
@@ -40,11 +40,10 @@ export type PairPhase =
   | "closed";
 
 /** Structured failure carried to ``onFailed`` so the UI can branch on
- *  reason (PROJECT.md §7.6.7) and surface the retry countdown the
- *  server suggests for rate-limit cases. ``postConnection`` is true if
- *  the failure happened after ``onConnected`` already fired, used to
- *  distinguish §7.6.7 #20 (peer disconnect mid-session) from #9/#10/#11
- *  (couldn't establish at all). */
+ *  reason and surface the retry countdown the server suggests for
+ *  rate-limit cases. ``postConnection`` is true if the failure happened
+ *  after ``onConnected`` already fired, used to distinguish a peer
+ *  disconnect mid-session from a pair that couldn't establish at all. */
 export interface PairFailure {
   reason: string;
   retryAfterSeconds?: number;
@@ -211,7 +210,7 @@ export class PairSession {
     this.pc.addEventListener("iceconnectionstatechange", () => {
       const state = this.pc.iceConnectionState;
       // "failed" is terminal: the browser gave up on ICE. Surface as
-      // §7.6.7 #19 so the UI can suggest a different network.
+      // rtc_failed so the UI can suggest a different network.
       if (state === "failed") {
         this.fail("rtc_failed");
       }

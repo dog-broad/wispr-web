@@ -1,4 +1,4 @@
-// PBKDF2 helper for the Link password gate ([D-260526-01]).
+// PBKDF2 helper for the Link password gate.
 //
 // This isn't part of the content-encryption path; the snippet's
 // AES-GCM key still lives in the URL fragment. The password is a

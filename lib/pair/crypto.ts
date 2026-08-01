@@ -24,8 +24,7 @@ const SAS_BITS_PER_CHAR = 5;
 
 // Crockford base32: excludes I/L/O/U so SAS reads cleanly over voice
 // and never confuses 0/O or 1/I/L. The 32 symbols cover exactly five
-// bits each, which lines up with the 20-bit SAS budget from
-// [D-0024-01].
+// bits each, which lines up with the 20-bit SAS budget.
 const CROCKFORD_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 export interface EphemeralKeypair {

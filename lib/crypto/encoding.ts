@@ -1,6 +1,6 @@
 // Byte-blob helpers for the Wispr wire format.
 //
-// The URL fragment uses base64url (RFC 4648 §5) with the URL-safe
+// The URL fragment uses base64url (RFC 4648) with the URL-safe
 // alphabet and stripped padding: short, copy-safe, no special
 // characters that browsers might encode further.
 //

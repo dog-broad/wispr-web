@@ -207,8 +207,8 @@ function bannerFromPhase(phase: Phase): ConnectBannerState {
 
 // True iff the page should show the conversation surface rather than
 // the PIN-entry surface. A post-connection failure keeps the exchange
-// log visible per §7.6.7 #20 ("session ends; exchange log preserved
-// in the tab"); the compose box itself is disabled below.
+// log visible ("session ends; exchange log preserved in the tab");
+// the compose box itself is disabled below.
 function showExchangeSurface(phase: Phase): boolean {
   if (phase.kind === "connected") return true;
   if (phase.kind === "failed" && phase.failure.postConnection) return true;
@@ -244,7 +244,7 @@ function StatusLine({ phase }: { phase: Phase }) {
       </p>
     );
   }
-  // ``failed``: the ConnectBanner up top already renders the §7.6.7
+  // ``failed``: the ConnectBanner up top already renders the failure
   // copy for every reachable reason, so the status line stays out of
   // the way to avoid duplicate messaging.
   return null;

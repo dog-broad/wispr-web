@@ -191,8 +191,8 @@ export function PairSender() {
 
 // True iff the page should show the conversation surface rather than
 // the PIN-and-countdown surface. A post-connection failure keeps the
-// exchange log visible per §7.6.7 #20 ("session ends; exchange log
-// preserved in the tab"); the compose box itself is disabled below.
+// exchange log visible ("session ends; exchange log preserved in the
+// tab"); the compose box itself is disabled below.
 function showExchangeSurface(session: SessionState): boolean {
   if (session.kind === "connected") return true;
   if (session.kind === "failed" && session.failure.postConnection) return true;

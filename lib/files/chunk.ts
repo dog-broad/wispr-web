@@ -10,7 +10,7 @@ import { decrypt, encrypt } from "@/lib/crypto/client";
 import { packEnvelope, unpackEnvelope } from "@/lib/crypto/encoding";
 
 export const CHUNK_SIZE = 1024 * 1024; // 1 MiB plaintext per chunk
-export const MAX_FILE_BYTES = 25 * CHUNK_SIZE; // 25 MB ceiling (PROJECT §10 M3)
+export const MAX_FILE_BYTES = 25 * CHUNK_SIZE; // 25 MB ceiling
 
 /** Number of 1 MiB chunks a file of `byteLength` splits into (min 1). */
 export function chunkCountFor(byteLength: number): number {

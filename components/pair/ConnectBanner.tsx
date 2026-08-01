@@ -1,6 +1,6 @@
 // Connect-state banner shared by /pair (sender) and /r (receiver).
 //
-// The SAS code is the optional MITM check from [D-0024-01]: both peers
+// The SAS code is the optional MITM check: both peers
 // derive the same 4-char Crockford-base32 value if and only if no
 // operator man-in-the-middle was inserted into signaling. Verifying it
 // out-of-band (read it over voice, glance across the desk) is the
@@ -8,9 +8,8 @@
 // care"; the code is shown but doesn't gate the channel.
 //
 // Failure rendering: ``copyForFailure`` maps every reachable wire
-// reason to dedicated copy from PROJECT.md §7.6.7, so the receiver
-// never falls through to a generic "something went wrong"; that's
-// the explicit anti-goal in the spec.
+// reason to dedicated copy, so the receiver never falls through to a
+// generic "something went wrong"; that's an explicit anti-goal.
 
 "use client";
 

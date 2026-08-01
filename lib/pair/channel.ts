@@ -15,8 +15,8 @@ import type { MessageHandler, PairSession } from "./session";
 const IV_BYTES = 12;
 const AES_TAG_BYTES = 16;
 
-// Caps and chunk size for the file path. Per PROJECT.md §10 M2: files
-// are inline-only up to 256 KiB; R2-backed larger uploads land in M3.
+// Caps and chunk size for the file path. In M2, files are inline-only up
+// to 256 KiB; R2-backed larger uploads land in M3.
 // 16 KiB chunks keep each encrypted frame well under the cross-browser
 // RTC data-channel message ceiling (~64 KiB worst case) even after
 // base64 inflation (~22 KiB per chunk on the wire).

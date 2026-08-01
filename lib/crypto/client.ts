@@ -3,8 +3,8 @@
 // it via a small id-correlated promise registry.
 //
 // Every browser tab gets its own worker. We do not pool or share across
-// tabs — keys live in tab memory only (PROJECT.md §3) and crossing the
-// tab boundary would be a leak.
+// tabs — keys live in tab memory only and crossing the tab boundary would
+// be a leak.
 
 import type {
   ClearKeysResult,
